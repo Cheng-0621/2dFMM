@@ -3,20 +3,18 @@ library(ggpubr)
 library(dplyr)
 library(refund)
 library(lme4)
-source("~/Documents/CityU/research/Project on Shanghai Actigraph Data/reference/codes/FUI/lfosr3s.R") 
-source("~/Documents/CityU/research/Project on Shanghai Actigraph Data/codes/method.R")
+setwd("~/Documents/CityU/research/Project on Shanghai Actigraph Data")
+source("reference/codes/FUI/lfosr3s.R") 
 ## required packages: lme4, refund, dplyr, mgcv, progress, mvtnorm, parallel
 
-setwd("~/Documents/CityU/research/Project on Shanghai Actigraph Data")
-
-sh <- get(load("shanghai.RData"))
-sh_all <- get(load("sh_all.RData"))
+sh <- get(load("data/shanghai.RData"))
+sh_all <- get(load("data/sh_all.RData"))
 sh_out <- sh_out[-which(duplicated(sh_out$id)), ]
-sh_ori <- read.csv("sh_ori.csv")
+sh_ori <- read.csv("data/sh_ori.csv")
 colnames(sh_ori)[1] <- "id"
 sh_ori <- sh_ori[-which(duplicated(sh_ori$id)), ]
 
-sh_district <- readxl::read_xlsx("上海学校基本信息2.xlsx")  
+sh_district <- readxl::read_xlsx("data/上海学校基本信息2.xlsx")  
 
 sh_out <- merge(sh_out, sh_ori[, c(which(colnames(sh_ori) == "学生姓名"|colnames(sh_ori) =="num_class"|colnames(sh_ori) =="school_num"), 
                                    grep("basic", colnames(sh_ori)))],
@@ -48,12 +46,9 @@ sh_out$grade_num <- factor(sh_out$grade_num, levels = c(6:12))
 
 #####################
 #####################
-
-jx <- get(load("jiangxi.RData"))
-jx_all <- get(load("jx_all2.RData"))
-
+jx <- get(load("data/jiangxi.RData"))
+jx_all <- get(load("data/jx_all2.RData"))
 jx_out$age <- as.numeric((as.Date(jx_out$startdate)-as.Date(jx_out$birthday))/365.25)
-
 jx_out$district_new <- ifelse(jx_out$district == "信州区", "Xinzhou", 
                               ifelse(jx_out$district == "婺源县", "Wuyuan", 
                                      ifelse(jx_out$district == "玉山县", "Yushan", "Boyang")))
@@ -70,8 +65,6 @@ jx_out$judu_new <- ifelse(jx_out$judu ==  "住宿" | jx_out$judu  == "寄宿" | 
                             jx_out$judu  == "寄读" | jx_out$judu==  "住校", "lodge",
                                  ifelse(jx_out$judu  == "走读" | jx_out$judu  == "走读生", "extern", NA))
 #jx_out <- jx_out[jx_out$judu_new != "unknown",]
-
-
 SF12v2_gh <- ifelse(jx_out$SF1 == "1", 5,
                            ifelse(jx_out$SF1 == "2", 4.4, 
                                   ifelse(jx_out$SF1 == "3", 3.4, 
@@ -126,7 +119,6 @@ SF12v2_pcs<-(SF12v2_pcs_r*10)+50
 jx_out$SF12v2_mcs <- SF12v2_mcs
 jx_out$SF12v2_pcs <- SF12v2_pcs
 
-
 ## Data manipulation
 city <- sh
 city_out <- sh_out
@@ -134,6 +126,38 @@ city_out <- sh_out
 ## smooth accelerometer dat
 #city.sm <- lapply(city, function(i) lowess(i, f=.03)$y)
 #city <- lapply(city, function(i)  stats::filter(i, sides=2, filter = (rep(1, 60)/60)))
+
+## nonwear detection
+nonwear_count <- rep(0, length(city))
+window <- 90
+
+for(i in 1:length(city)){
+  tmp <- rle(city[[i]] == 0) 
+  nonwear_count[i] <- sum(tmp$lengths[tmp$values == TRUE] >= window)
+  
+  if(nonwear_count[i] != 0){
+    
+    if(nonwear_count[i] == 1){
+      if(which(tmp$lengths >= window & tmp$values == TRUE) == 1){
+        start <- 1
+        end <- cumsum(tmp$lengths)[which(tmp$lengths >= window & tmp$values == TRUE)]
+        for(j in 1:length(start)) city[[i]][start[j]:end[j]] <- NA
+      }else{
+        start <- cumsum(tmp$lengths)[which(tmp$lengths >= window & tmp$values == TRUE)-1] + 1
+        end <- cumsum(tmp$lengths)[which(tmp$lengths >= window & tmp$values == TRUE)]
+        for(j in 1:length(start)) city[[i]][start[j]:end[j]] <- NA
+      }
+    }
+
+  }
+}
+
+par(mfrow = c(1,3))
+hist(nonwear_count, xlab = "nonwear count",
+     main=paste("window =", window),
+     breaks = 20)
+
+
 
 acc <- as.data.frame(do.call("rbind", city))
 acc$watch_id <- names(city)
@@ -144,7 +168,6 @@ if (sum(city_out$province  == "江西省") > 0) {
   city_out$watch_id <- paste(city_out$watch_sn, city_out$startdate,sep="_")
 }
 df <- merge(city_out, acc, by = "watch_id") #merge two sets based on watch_sn + start_day
-
 
 ID <- factor(rep(1:nrow(df), each=7))
 visit <- rep(1:7, nrow(df))
@@ -238,7 +261,7 @@ if (sum(city_out$province  == "江西省") > 0) {
                     sf12v2_mcs=sf12v2_mcs, sf12v2_pcs=sf12v2_pcs,
                     Y=I(Y)) #construct new dataframe 
   all<- with(all, all[order(ID, days_week),]) #reorder the week day from Monday to Sunday
-  all <- na.omit(all)
+  #all <- na.omit(all)
 } else {
   all <- data.frame(ID=ID, visit=visit, gender=gender,
                     nvalidwedays = nvalidwedays, nvalidwkdays = nvalidwkdays,
@@ -257,7 +280,7 @@ if (sum(city_out$province  == "江西省") > 0) {
                     mi_test=mi_test, tot_test=tot_test,
                     Y=I(Y)) #construct new dataframe 
   all<- with(all, all[order(ID, days_week),]) #reorder the week day from Monday to Sunday
-  all <- na.omit(all)
+  #all <- na.omit(all)
 }
 
 #total activity count
@@ -272,9 +295,8 @@ if (sum(city_out$province  == "江西省") == 0){
 }
 
 acc.all <- all
-acc.all <- acc.all[acc.all$days_week != "Saturday" & acc.all$days_week != "Sunday",]
-acc.all <- acc.all[acc.all$days_week == "Saturday" | acc.all$days_week == "Sunday",]
-
+#acc.all <- acc.all[acc.all$days_week != "Saturday" & acc.all$days_week != "Sunday",]
+#acc.all <- acc.all[acc.all$days_week == "Saturday" | acc.all$days_week == "Sunday",]
 
 ####total activity count 
 pv <- NULL
@@ -297,417 +319,16 @@ round(pv[,"acips"],2)
 
 
 lm <- lm(formula = depression ~ edu +income , data = acc.all)
-summary(lm)
 
 
 ####
-I <- 1200
-L <- 500
-set.seed(123)
-st <-sample(unique(all$ID), size = I)
-acc.all <- all[all$ID %in% st,]
-#acc.all <- all
-#acc.all$Y <- acc.all$Y[,181:360]
-#acc.all$Y <- acc.all$Y[,361:720]
-#acc.all$Y <- acc.all$Y[,721:1080]
-#acc.all$Y <- acc.all$Y[,1080:1440]
-acc.all$Y <- acc.all$Y[,floor(seq(1, ncol(acc.all$Y), length.out = L))]
-save(acc.all, file="example.RData")
-
-acc.all <- acc.all[acc.all$days_week != "Saturday" & acc.all$days_week != "Sunday",]
-acc.all <- acc.all[acc.all$days_week == "Saturday" | acc.all$days_week == "Sunday",]
-
-## FUI
-fig <- list()
-for (i in 1:6){
-  covariate <- c("acips", "erq_cr", "erq_es", "sf12v2_mcs", "sf12v2_pcs", "depression")
-  fml <- as.formula(paste("Y ~ grade + gender + income + edu +", covariate[i], "+ (1 | ID) + (1 | class_by_day)"))
-  raw <- FALSE
-  ptm <- proc.time()
-  fit_lfosr3s <- our.lfosr3s(formula =fml, data = acc.all, nknots = 30,
-                             family = "gaussian", var = TRUE, analytic = TRUE, raw = raw)
-  fuitime <- (proc.time() - ptm)[3]
-  pic.FUI <- list()
-  for (r in 1:6){
-    beta.hat.plt <- data.frame(t = seq(1, ncol(fit_lfosr3s$betaHat), length.out = ncol(fit_lfosr3s$betaHat)),
-                               beta = fit_lfosr3s$betaHat[r,],
-                               lower = fit_lfosr3s$betaHat[r,] - 2*sqrt(diag(fit_lfosr3s$betaHat.var[,,r])),
-                               upper = fit_lfosr3s$betaHat[r,] + 2*sqrt(diag(fit_lfosr3s$betaHat.var[,,r])),
-                               lower.joint = fit_lfosr3s$betaHat[r,] - fit_lfosr3s$qn[r]*sqrt(diag(fit_lfosr3s$betaHat.var[,,r])),
-                               upper.joint = fit_lfosr3s$betaHat[r,] + fit_lfosr3s$qn[r]*sqrt(diag(fit_lfosr3s$betaHat.var[,,r])))
-    tit <- c("intercept","grade", "sex","income", "education", covariate[i])
-    p.CI <- ggplot() +
-            theme_bw() +
-            theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
-            geom_ribbon(aes(x = t, ymax = upper.joint, ymin = lower.joint), data = beta.hat.plt, fill = "gray30", alpha = 0.2) +
-            geom_ribbon(aes(x = t, ymax = upper, ymin = lower), data = beta.hat.plt, fill = "gray10", alpha = 0.4) +
-            geom_line(aes(x = t, y = beta, color = "Estimate"), data = beta.hat.plt, alpha = 1, lty = 5) +
-            scale_colour_manual(name="", values=c("Estimate"="blue3")) +
-            scale_x_continuous(breaks = seq(1, ncol(fit_lfosr3s$betaHat), length.out = 5), labels = paste(c(0,6,12,18,24), ":00", sep="")) +
-            labs(title = tit[r], x="Time of Day") + 
-            theme(axis.text.x = element_text(margin = margin(t = 0, r = 0, b = 10, l = 0)))
-    pic.FUI[[r]] <- p.CI
-  }
-  fig[[i]] <- list(pic.FUI[[2]],pic.FUI[[3]],pic.FUI[[4]],pic.FUI[[5]],pic.FUI[[6]])
-}
-
-ggarrange(fig[[6]][[1]], fig[[6]][[2]], fig[[6]][[3]], fig[[6]][[4]],
-          fig[[1]][[5]], fig[[2]][[5]], fig[[3]][[5]], fig[[4]][[5]], fig[[5]][[5]], fig[[6]][[5]], 
-          ncol=4, nrow = 2, legend = F)
-ggarrange(fig[[6]][[1]], fig[[6]][[2]], fig[[6]][[3]], fig[[6]][[4]],
-          fig[[1]][[5]], fig[[2]][[5]], fig[[3]][[5]], fig[[4]][[5]], ncol=4, nrow = 2, legend = F)
-
-
-
-######################
-raw <- FALSE
-ptm <- proc.time()
-fit_lfosr3s <- our.lfosr3s(formula = Y ~ grade + gender + depression + (1 | ID), data = acc.all, 
-                           family = "gaussian",
-                           bs = "cr", nknots = 10,
-                           var = TRUE, analytic = TRUE, raw = raw)
-fuitime <- (proc.time() - ptm)[3]
-pic.FUI <- list()
-for (r in 1:6){
-  beta.hat.plt <- data.frame(t = seq(1, ncol(fit_lfosr3s$betaHat), length.out = ncol(fit_lfosr3s$betaHat)),
-                             beta = fit_lfosr3s$betaHat[r,],
-                             lower = fit_lfosr3s$betaHat[r,] - 2*sqrt(diag(fit_lfosr3s$betaHat.var[,,r])),
-                             upper = fit_lfosr3s$betaHat[r,] + 2*sqrt(diag(fit_lfosr3s$betaHat.var[,,r])),
-                             lower.joint = fit_lfosr3s$betaHat[r,] - fit_lfosr3s$qn[r]*sqrt(diag(fit_lfosr3s$betaHat.var[,,r])),
-                             upper.joint = fit_lfosr3s$betaHat[r,] + fit_lfosr3s$qn[r]*sqrt(diag(fit_lfosr3s$betaHat.var[,,r])))
-  tit <- c("intercept","grade", "sex", "extern", "lodge", "depression")
-  p.CI <- ggplot() +
-    theme_bw() +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
-    geom_ribbon(aes(x = t, ymax = upper.joint, ymin = lower.joint), data = beta.hat.plt, fill = "gray30", alpha = 0.2) +
-    geom_ribbon(aes(x = t, ymax = upper, ymin = lower), data = beta.hat.plt, fill = "gray10", alpha = 0.4) +
-    geom_line(aes(x = t, y = beta, color = "Estimate"), data = beta.hat.plt, alpha = 1, lty = 5) +
-    scale_colour_manual(name="", values=c("Estimate"="blue3")) +
-    scale_x_continuous(breaks = seq(1, ncol(fit_lfosr3s$betaHat), length.out = 5), labels = paste(c(0,6,12,18,24), ":00", sep="")) +
-    labs(title = tit[r], x="Time of Day") + 
-    theme(axis.text.x = element_text(margin = margin(t = 0, r = 0, b = 10, l = 0)))
-  pic.FUI[[r]] <- p.CI
-}
-ggarrange(pic.FUI[[2]], pic.FUI[[3]], pic.FUI[[4]], pic.FUI[[5]], pic.FUI[[6]], 
-          ncol=4, nrow = 2, common.legend = T)
-
-
-
-#approximate multiple confidence intervals
-
-pic.FUI1 <- list()
-for (i in 1:6){
-  r <- i #rth predictor
-  beta.hat.plt <- data.frame(t = seq(1, ncol(fit_lfosr3s$betaHat), length.out = ncol(fit_lfosr3s$betaHat)),
-                              beta = fit_lfosr3s$betaHat[9,] + fit_lfosr3s$betaHat[r+15,],
-                              lower = fit_lfosr3s$betaHat[9,] + fit_lfosr3s$betaHat[r+15,] - 2*sqrt(diag(fit_lfosr3s$betaHat.var[,,9])+diag(fit_lfosr3s$betaHat.var[,,r+15])),
-                              upper = fit_lfosr3s$betaHat[9,] + fit_lfosr3s$betaHat[r+15,] + 2*sqrt(diag(fit_lfosr3s$betaHat.var[,,9])+diag(fit_lfosr3s$betaHat.var[,,r+15])))
-  tit <- c("stress_Tuesday", "stress_Wednesday", "stress_Thursday","stress_Friday","stress_Saturday", "stress_Sunday")
-  p.CI <- ggplot() +
-    theme_bw() +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
-    geom_ribbon(aes(x = t, ymax = upper, ymin = lower), data = beta.hat.plt, fill = "gray10", alpha = 0.4) +
-    geom_line(aes(x = t, y = beta, color = "Estimate"), data = beta.hat.plt, alpha = 1, lty = 5) +
-    scale_colour_manual(name="", values=c("Estimate"="blue3")) +
-    scale_x_continuous(breaks = seq(1, ncol(fit_lfosr3s$betaHat), length.out = 5), labels = paste(c(0,6,12,18,24), ":00", sep="")) +
-    labs(title = tit[i], x="Time of Day") + 
-    theme(axis.text.x = element_text(margin = margin(t = 0, r = 0, b = 10, l = 0)))
-  pic.FUI1[[i]] <- p.CI
-}
-ggarrange(pic.FUI1[[1]],pic.FUI1[[2]],pic.FUI1[[3]],pic.FUI1[[4]],pic.FUI1[[5]],pic.FUI1[[6]],
-          ncol=3, nrow = 2, common.legend = T)
-
-
-
-
-pt.wise <- function(formula, data, family = "gaussian", argvals = NULL, parallel = FALSE, silent = FALSE){
-  library(lme4) ## mixed models
-  library(refund) ## fpca.face
-  library(dplyr) ## organize lapply results
-  library(progress) ## display progress bar
-  library(mgcv) ## smoothing in step 2
-  library(mvtnorm) ## joint CI
-  library(parallel) ## mcapply
-  
-  if(family != "gaussian") analytic <- FALSE ## bootstrap inference for non-Gaussian family
-  
-  ## Organize the input
-  model_formula <- as.character(formula)
-  stopifnot(model_formula[1] == "~" & length(model_formula) == 3)
-  
-  ##########################################################################################
-  ## Step 1
-  ##########################################################################################
-  if(silent == FALSE) print("Step 1: Massive Univariate Mixed Models")
-  
-  L <- ncol(data[,model_formula[2]]) ## number of observations on the functional domain
-  if(is.null(argvals)) argvals <- 1:L
-  
-  ## function "unimm" fit univariate mixed model at location l
-  unimm <- function(l){
-    data$Yl <- unclass(data[,model_formula[2]][,l])
-    if(family == "gaussian"){
-      fit_uni <- suppressMessages(lmer(formula = as.formula(paste0("Yl ~ ", model_formula[3])), 
-                                       data = data, control = lmerControl(optimizer = "bobyqa")))
-    }else{
-      fit_uni <- suppressMessages(glmer(formula = as.formula(paste0("Yl ~ ", model_formula[3])), 
-                                        data = data, family = family, control = glmerControl(optimizer = "bobyqa")))
-    }
-    betaTilde <- lme4::fixef(fit_uni)
-    ub <- betaTilde + 1.96*sqrt(diag(vcov(fit_uni)))
-    lb <- betaTilde - 1.96*sqrt(diag(vcov(fit_uni)))
-    
-    #uTilde <- lme4::ranef(fit_uni, drop=TRUE)[[1]]
-    yTilde <- predict(fit_uni)
-    
-    return(list(betaTilde = betaTilde, ub = ub, lb = lb, yTilde = yTilde))
-  }
-  
-  ## fit massive univariate mixed models
-  if(parallel == TRUE){
-    massmm <- mclapply(argvals, unimm, mc.cores = detectCores() - 1)
-  }else{
-    massmm <- lapply(argvals, unimm)
-  }
-  
-  ## obtain betaTilde
-  betaTilde <- t(lapply(massmm, '[[', 1) %>% bind_rows())
-  colnames(betaTilde) <- argvals
-
-  ubTilde <- t(lapply(massmm, '[[', 2) %>% bind_rows())
-  lbTilde <- t(lapply(massmm, '[[', 3) %>% bind_rows())
-  colnames(ubTilde) <- argvals
-  colnames(lbTilde) <- argvals
-  
-  return(list(betaTilde=betaTilde, ubTilde=ubTilde, lbTilde=lbTilde))
-}  
-
-
-
-####
-acc.all <- all
-
+N <- 1200
 L <- 200
-acc.all$Y <- acc.all$Y[,floor(seq(1, ncol(acc.all$Y), length.out = L))]
-
-acc.all <- acc.all[acc.all$days_week != "Saturday" & acc.all$days_week != "Sunday",]
-acc.all <- acc.all[acc.all$days_week == "Saturday" | acc.all$days_week == "Sunday",]
-
-## FUI
-fig <- list()
-for (i in 1:6){
-  print(i)
-  covariate <- c("acips", "erq_cr", "erq_es", "sf12v2_mcs", "sf12v2_pcs", "depression")
-  fml <- as.formula(paste("Y ~ grade + gender + income + edu +", covariate[i], "+ (1 | ID) + (1 | class_by_day)"))
-  ptm <- proc.time()
-  fit_lfosr3s <- pt.wise(formula = fml, data = acc.all, 
-                         family = "gaussian")
-  fuitime <- (proc.time() - ptm)[3]
-  pic.FUI <- list()
-  for (r in 1:6){
-    beta.hat.plt <- data.frame(t = seq(1, ncol(fit_lfosr3s$betaTilde), length.out = ncol(fit_lfosr3s$betaTilde)),
-                               beta = fit_lfosr3s$betaTilde[r,],
-                               lower = fit_lfosr3s$lbTilde[r,],
-                               upper = fit_lfosr3s$ubTilde[r,])
-    tit <- c("intercept","grade", "sex", "income", "education", covariate[i])
-    p.CI <- ggplot() +
-      theme_bw() +
-      theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
-      geom_ribbon(aes(x = t, ymax = upper, ymin = lower), data = beta.hat.plt, fill = "gray10", alpha = 0.4) +
-      geom_line(aes(x = t, y = beta, color = "Estimate"), data = beta.hat.plt, alpha = 1, lty = 5, size = 0.8) +
-      scale_colour_manual(name="", values=c("Estimate"="blue3")) +
-      scale_x_continuous(breaks = seq(1, ncol(fit_lfosr3s$betaTilde), length.out = 5), labels = paste(c(0,6,12,18,24), ":00", sep="")) +
-      labs(title = tit[r], x="Time of Day") + 
-      theme(axis.text.x = element_text(margin = margin(t = 0, r = 0, b = 10, l = 0)))
-    pic.FUI[[r]] <- p.CI
-  }
-  fig[[i]] <- list(pic.FUI[[2]],pic.FUI[[3]],pic.FUI[[4]],pic.FUI[[5]],pic.FUI[[6]])
-}
-
-
-
-ggarrange(fig[[1]][[1]], fig[[1]][[2]], fig[[1]][[3]], fig[[1]][[4]],
-          ncol=4, nrow = 2, common.legend = T)
-
-
-ggarrange(fig[[6]][[1]], fig[[6]][[2]], fig[[6]][[3]], fig[[6]][[4]],
-          fig[[1]][[5]] + ylim(-30,40),
-          fig[[2]][[5]] + ylim(-40,60), 
-          fig[[3]][[5]] + ylim(-60,50), 
-          fig[[4]][[5]] + ylim(-35,30), 
-          fig[[5]][[5]] + ylim(-30,35),
-          fig[[6]][[5]] + ylim(-50,50),
-          ncol=4, nrow = 2, legend = F)
-
-ggarrange(fig[[6]][[1]], fig[[6]][[2]], fig[[6]][[3]], fig[[6]][[4]],
-          fig[[1]][[5]] + ylim(-15,30),
-          fig[[2]][[5]] + ylim(-30,40), 
-          fig[[3]][[5]] + ylim(-60,40), 
-          fig[[4]][[5]] + ylim(-20,25), 
-          fig[[5]][[5]] + ylim(-25,30),
-          fig[[6]][[5]] + ylim(-50,50),
-          ncol=4, nrow = 2, legend = F)
-
-
-
-
-## FAMM
-ptm <- proc.time()
-fit_pffr <- pffr(formula = Y ~ age + anx_cat + s(ID, bs = "re"), data = acc.all, family = "gaussian", algorithm = "bam",
-                 bs.yindex = list(bs = "ps", k = 15, m = c(2, 1)))
-pffrtime <- (proc.time() - ptm)[3]
-pffrtime
-
-#For factor variables, a separate smooth function with its own smoothing parameter is estimated for each level of the factor
-coef_pffr <- coef(fit_pffr, n1 = L)
-betaHat_pffr.var <- betaHat_pffr  <- array(0, dim=c(5, L))
-
-for(i in 1:5){
-  if (i == 1) {
-    betaHat_pffr[i,] <- as.vector(coef_pffr$smterms[[i]]$value) + coef_pffr$pterms[1]
-  } else {
-    betaHat_pffr[i,] <- as.vector(coef_pffr$smterms[[i]]$value) 
-  }
-  betaHat_pffr.var[i,] <- as.vector(coef_pffr$smterms[[i]]$se^2)
-}
-
-
-pic.FAMM <- list() 
-for(i in 1:5){
-  r <- i #rth predictor
-  beta.hat.plt <- data.frame(t = seq(1, L, length.out=L), 
-                             beta = betaHat_pffr[r,],
-                             upper = betaHat_pffr[r,]+1.96*sqrt(betaHat_pffr.var[r,]),
-                             lower = betaHat_pffr[r,]-1.96*sqrt(betaHat_pffr.var[r,]))
-  tit <- c("intercept", "age", "anxiety")
-  p.CI <- ggplot() +
-    theme_bw() +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
-    geom_ribbon(aes(x = t, ymax = upper, ymin = lower), data = beta.hat.plt, fill = "gray10", alpha = 0.4) +
-    geom_line(aes(x = t, y = beta, color = "Estimate"), data = beta.hat.plt, alpha = 1, lty = 5) +
-    scale_colour_manual(name="", values=c("Estimate"="blue3")) +
-    scale_x_continuous(breaks = seq(1, L,length.out = 5), labels = paste(c(0,6,12,18,24), ":00", sep="")) + 
-    labs(title = tit[i])
-  pic.FAMM[[i]] <- p.CI
-}
-ggarrange(pic.FAMM[[1]], pic.FAMM[[2]], pic.FAMM[[3]], pic.FAMM[[4]], pic.FAMM[[5]], ncol=3, nrow = 2, common.legend = T)
-
-
-## Bayesian
-ptm <- proc.time()
-fit_bayes <- bayes_fosr(formula = Y ~ age + anxiety + re(ID), data = acc.all, Kt = 10, Kp = 10, est.method = "Gibbs", 
-                        N.iter = 500, N.burn = 300)
-#fit_bayes <- bayes_fosr(formula = Y ~ age + anxiety + re(ID), data = acc.all, Kt = 10, Kp = 10) #variational bayes
-bayestime <- (proc.time() - ptm)[3]
-bayestime
-
-
-pic.BAYES<- list() 
-for(i in 1:3){
-  r <- i #rth predictor
-  beta.hat.plt <- data.frame(t = seq(1, L, length.out=L), 
-                             beta = fit_bayes$beta.hat[r,],
-                             upper = fit_bayes$beta.UB[r,],
-                             lower = fit_bayes$beta.LB[r,])
-  tit <- c("intercept", "age", "anxiety")
-  p.CI <- ggplot() +
-    theme_bw() +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
-    geom_ribbon(aes(x = t, ymax = upper, ymin = lower), data = beta.hat.plt, fill = "gray10", alpha = 0.4) +
-    geom_line(aes(x = t, y = beta, color = "Estimate"), data = beta.hat.plt, alpha = 1, lty = 5) +
-    scale_colour_manual(name="", values=c("Estimate"="blue3")) +
-    scale_x_continuous(breaks = seq(1, L,length.out = 5), labels = paste(c(0,6,12,18,24), ":00", sep="")) + 
-    labs(title = tit[i])
-  pic.BAYES[[i]] <- p.CI
-}
-ggarrange(pic.BAYES[[1]], pic.BAYES[[2]], pic.BAYES[[3]], ncol=3, nrow = 1, common.legend = T)
-
-
-## FDboost
-library("FDboost")
-
-acc.boost <- list()
-acc.boost$Y <- acc.all$Y
-acc.boost$age <- acc.all$age
-acc.boost$anxiety <- acc.all$anxiety
-acc.boost$id <- factor(acc.all$ID)
-acc.boost$t <- seq(1:L)
-
-
-ptm <- proc.time() 
-fit_FDboost <- FDboost(formula = Y ~ 1 + bolsc(age, df=3) + bolsc(anxiety, df=3) + brandomc(id, df = 3),
-                       data = acc.boost, control = boost_control(mstop = 500), timeformula = ~ bbs(t, df = 4))
-
-bootstrap <- function(data, object, num_bootstrap)
-{
-  B <- num_bootstrap
-  betaHat_boot <- array(NA, dim = c(3, L, B))
-  ID.number <- length(unique(data$id))
-  for(boots in 1:B){
-    sample.ind <- sample(1:ID.number, size = ID.number, replace = TRUE)
-    boost.sub <- data
-    boost.sub$Y <- boost.sub$Y[boost.sub$id %in% sample.ind, ]
-    boost.sub$age <- boost.sub$age[boost.sub$id %in% sample.ind]
-    boost.sub$anxiety <- boost.sub$anxiety[boost.sub$id %in% sample.ind]
-    boost.sub$id <- boost.sub$id[boost.sub$id %in% sample.ind]
-    
-    fit_boot <- try(FDboost(formula = as.formula(object$formulaFDboost),
-                            data = boost.sub, control = boost_control(mstop = 500), timeformula = as.formula(object$timeformula)))
-
-    coef_boot <- coef(fit_boot, n1 = L, n2 = L)
-    betaHat_boot[1,,boots] <- as.vector(coef_boot$smterms[[1]]$value) + coef_boot$offset$value
-    betaHat_boot[2,,boots] <- -predict(fit_boot, which=2, newdata=list(age=1, anxiety=1, t=1:L)) 
-    betaHat_boot[3,,boots] <- -predict(fit_boot, which=3, newdata=list(age=1, anxiety=1, t=1:L))
-  }
-  ## obtain bootstrap variance
-  betaHat.var <- array(NA, dim = c(L,L,3))
-  for(r in 1:3){
-    betaHat.var[,,r] <- 1.2*var(t(betaHat_boot[r,,])) ## account for within-subject correlation
-  }
-  return(betaHat.var)
-}
-bound <- bootstrap(data = acc.boost, object = fit_FDboost, num_bootstrap = 10)
-
-FDboosttime <- (proc.time() - ptm)[3]
-FDboosttime
-
-
-betaHat_FDboost  <- array(0, dim=c(3, L))
-
-coef_FDboost <- coef(fit_FDboost, n1 = L, n2 = L)
-betaHat_FDboost[1,] <- as.vector(coef_FDboost$smterms[[1]]$value) + coef_FDboost$offset$value
-betaHat_FDboost[2,] <- -predict(fit_FDboost, which=2, newdata=list(age=1, t=1:L)) 
-betaHat_FDboost[3,] <- -predict(fit_FDboost, which=3, newdata=list(anxiety=1, t=1:L))
-
-FDboostbeta.LB <- FDboostbeta.UB <- array(0, dim=c(3, L))
-for (r in 1:3){
-  FDboostbeta.LB[r,] <- betaHat_FDboost[r,] - 1.96*sqrt(diag(bound[,,r]))
-  FDboostbeta.UB[r,] <- betaHat_FDboost[r,] + 1.96*sqrt(diag(bound[,,r]))
-}
-
-
-#betaHat_FDboost[2,] <- apply(coef_FDboost$smterms[[2]]$value, 2, mean)
-#betaHat_FDboost[3,] <- apply(coef_FDboost$smterms[[3]]$value, 2, mean)
-
-
-pic.FDboost <- list() 
-for(r in 1:3){
-  beta.hat.plt <- data.frame(t = seq(1, L, length.out=L), 
-                             beta = betaHat_FDboost[r,],
-                             upper = FDboostbeta.UB[r,],
-                             lower = FDboostbeta.LB[r,])
-  tit <- c("intercept", "age", "anxiety")
-  p.CI <- ggplot() +
-    theme_bw() +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
-    geom_ribbon(aes(x = t, ymax = upper, ymin = lower), data = beta.hat.plt, fill = "gray10", alpha = 0.4) +
-    geom_line(aes(x = t, y = beta, color = "Estimate"), data = beta.hat.plt, alpha = 1, lty = 5) +
-    scale_colour_manual(name="", values=c("Estimate"="blue3")) +
-    scale_x_continuous(breaks = seq(1, L,length.out = 5), labels = paste(c(0,6,12,18,24), ":00", sep="")) + 
-    labs(title = tit[r])
-  pic.FDboost[[r]] <- p.CI
-}
-ggarrange(pic.FDboost[[1]], pic.FDboost[[2]], pic.FDboost[[3]], ncol=3, nrow = 1, common.legend = T)
+set.seed(123)
+st <-sample(unique(all$ID), size = N)
+phyact <- all[all$ID %in% st,]
+phyact$Y <- phyact$Y[,floor(seq(1, ncol(phyact$Y), length.out = L))]
+save(phyact, file="data/example.RData")
 
 
 
@@ -721,7 +342,7 @@ for (i in 1:length(unique(all.reorder$ID))) {
 }
 
 
-plot.subject <- data.frame(y = Ynew[1,], t=rep(1:1440, 7), day = rep(1:7, each=1440)) 
+plot.subject <- data.frame(y = as.vector(all$Y[1:7,]), t=rep(1:1440, 7), day = rep(1:7, each=1440)) 
 
 p1 <- ggplot(data = plot.subject, aes(x=1:(7*1440), y=y)) +
   geom_line() +
@@ -760,7 +381,6 @@ for (i in 0:1){
   sub.avg <-c(sub.avg, apply(sub, 2, mean))
 }
 sub.avg <- data.frame(time=rep(1:1440,2), avg = sub.avg, cat = rep(paste0("Depression",0:1), each=1440))
-
 
 p3 <- ggplot(data = sub.avg, aes(x=time, y=avg,  color=cat)) +
   geom_line(alpha=0.6) +
@@ -991,23 +611,15 @@ ggarrange(p1, p2, common.legend = T, legend = "right")
 
 
 #####MVPA, LA. SED
-Ymvp <- ifelse(Ynew>=3600, "MVPA", ifelse(Ynew<200, "SED", "LA"))
+Ymvp.sum.plot <- data.frame(sh_out) %>% dplyr::group_by(grade_num) %>%
+  dplyr::summarise(MVPA=mean(wd_mvpa_e5s_t568_enmo, na.rm=T), LA=mean(wd_mvpa_e5s_t151_enmo, na.rm=T), SED=mean(wd_mvpa_e5s_t10_enmo, na.rm=T))
 
-Ymvp.sum <- Ymvp[,as.vector(sapply(1:5, function(x) x*(1081:1440)))] #weekday
-Ymvp.sum <- base::apply(Ymvp.sum, 1, function(x) table(factor(x, levels = c("SED", "LA", "MVPA")))/5)
-Ymvp.sum <- t(Ymvp.sum)
-#Ymvp.sum <- do.call("rbind", Ymvp.sum)
-Ymvp.sum <- cbind(Ymvp.sum, grade=sapply(1:nrow(Ynew), function(x) unique(all.reorder$grade[all.reorder$ID==x])))
-
-Ymvp.sum.plot <- data.frame(Ymvp.sum) %>% dplyr::group_by(grade) %>%
-  dplyr::summarise(MVPAm=mean(MVPA), LAm=mean(LA), SEDm=mean(SED))
-
-Ymvp.sum.plot <- reshape(Ymvp.sum.plot, idvar="grade",
-                         varying=c("MVPAm", "LAm", "SEDm"), 
+Ymvp.sum.plot <- reshape(Ymvp.sum.plot, idvar="grade_num",
+                         varying=c("MVPA", "LA", "SED"), 
                          times=c("MVPA", "LA", "SED"), 
-                         new.row.names = 1:1000, v.names=c("avg"), direction="long")
+                         new.row.names = 1:21, v.names=c("avg"), direction="long")
 
-p1 <- ggplot(Ymvp.sum.plot, aes(x=grade, y=avg, color=time)) + 
+p1 <- ggplot(Ymvp.sum.plot, aes(x=as.numeric(grade_num), y=avg, color=time)) + 
   geom_point(size=1.3) + 
   geom_line(size=1.3) +
   theme_bw() + 
@@ -1018,24 +630,19 @@ p1 <- ggplot(Ymvp.sum.plot, aes(x=grade, y=avg, color=time)) +
         legend.text = element_text(size=12), legend.title = element_text(size=14), 
         plot.title = element_text(size=20)) + 
   scale_x_continuous(breaks=1:7, labels=6:12) + 
-  coord_cartesian(ylim = c(0, 300))
+  coord_cartesian(ylim = c(0, 700))
 
 
-Ymvp.sum <- Ymvp[,as.vector(sapply(6:7, function(x) x*(1081:1440)))] #weekend
-Ymvp.sum <- base::apply(Ymvp.sum, 1, function(x) table(factor(x, levels = c("SED", "LA", "MVPA")))/2)
-Ymvp.sum <- t(Ymvp.sum)
-#Ymvp.sum <- do.call("rbind", Ymvp.sum)
-Ymvp.sum <- cbind(Ymvp.sum, grade=sapply(1:nrow(Ynew), function(x) unique(all.reorder$grade[all.reorder$ID==x])))
+Ymvp.sum.plot <- data.frame(sh_out) %>% dplyr::group_by(grade_num) %>%
+  dplyr::summarise(MVPA=mean(we_mvpa_e5s_t568_enmo, na.rm=T), LA=mean(we_mvpa_e5s_t151_enmo, na.rm=T), SED=mean(we_mvpa_e5s_t10_enmo, na.rm=T))
 
-Ymvp.sum.plot <- data.frame(Ymvp.sum) %>% dplyr::group_by(grade) %>%
-  dplyr::summarise(MVPAm=mean(MVPA), LAm=mean(LA), SEDm=mean(SED))
 
-Ymvp.sum.plot <- reshape(Ymvp.sum.plot, idvar="grade",
-        varying=c("MVPAm", "LAm", "SEDm"), 
-        times=c("MVPA", "LA", "SED"), 
-        new.row.names = 1:1000, v.names=c("avg"), direction="long")
+Ymvp.sum.plot <- reshape(Ymvp.sum.plot, idvar="grade_num",
+                         varying=c("MVPA", "LA", "SED"), 
+                         times=c("MVPA", "LA", "SED"), 
+                         new.row.names = 1:21, v.names=c("avg"), direction="long")
 
-p2 <- ggplot(Ymvp.sum.plot, aes(x=grade, y=avg, color=time)) + 
+p2 <- ggplot(Ymvp.sum.plot, aes(x=as.numeric(grade_num), y=avg, color=time)) + 
   geom_point(size=1.3) + 
   geom_line(size=1.3) +
   theme_bw() + 
@@ -1046,7 +653,7 @@ p2 <- ggplot(Ymvp.sum.plot, aes(x=grade, y=avg, color=time)) +
         legend.text = element_text(size=12), legend.title = element_text(size=14),
         plot.title = element_text(size=20)) + 
   scale_x_continuous(breaks=1:7, labels=6:12) + 
-  coord_cartesian(ylim = c(0, 300))
+  coord_cartesian(ylim = c(0, 700))
 
 ggarrange(p1, p2, common.legend = T, legend = "right")
 
