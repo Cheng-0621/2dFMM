@@ -171,20 +171,4 @@ fig
 
 
 
-#if(type==2){
-#  f[(2*length(S)/10):(5*length(S)/10),(26*length(T)/100):(50*length(T)/100)] <- 5*block
-#  f[(6*length(S)/10):(9*length(S)/10),(26*length(T)/100):(50*length(T)/100)] <- -5*block
-#  f[(2*length(S)/10):(5*length(S)/10),(51*length(T)/100):(75*length(T)/100)] <- -5*block
-#  f[(6*length(S)/10):(9*length(S)/10),(51*length(T)/100):(75*length(T)/100)] <- 5*block
-#}
-#if(type==3){
-#  f[(1*length(S)/10):(4*length(S)/10),(14*length(T)/100):(38*length(T)/100)] <- 5*block
-#  f[(7*length(S)/10):(10*length(S)/10),(14*length(T)/100):(38*length(T)/100)] <- -5*block
-#  f[(1*length(S)/10):(4*length(S)/10),(62*length(T)/100):(86*length(T)/100)] <- -5*block
-#  f[(7*length(S)/10):(10*length(S)/10),(62*length(T)/100):(86*length(T)/100)] <- 5*block
-#  for(s in 1:length(S)){
-#    for(t in 1:length(T)){
-#      if((S[s]-0.2)^2 + (T[t]-0.25)^2 > 0.1^2 & (S[s]-0.8)^2 + (T[t]-0.25)^2 > 0.1^2 & (S[s]-0.2)^2 + (T[t]-0.75)^2 > 0.1^2 & (S[s]-0.8)^2 + (T[t]-0.75)^2 > 0.1^2) f[s,t] <- 0 
-#    }
-#  }
 

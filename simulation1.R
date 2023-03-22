@@ -18,8 +18,8 @@ source("codes/2DFMM.R")
 ## Set parameters
 ################################################################################
 n <- 50 ## number of subjects
-S <- 15 ##number of observations per subject
-T <- 100 ## dimension of the functional domain
+S <- 10 ##number of observations per subject
+T <- 150 ## dimension of the functional domain
 type <- 2 ##beta_true type 
 SNR_B <- 1 ## relative importance of random effects
 SNR_sigma <- 1 ## signal-to-noise ratio
@@ -51,7 +51,7 @@ phi2[2,] <- phi2[2,] / sqrt(sum(phi2[2,]^2))
 ################################################################################
 ## Do simulations on a local laptop 
 ################################################################################
-nsim <- 10
+nsim <- 100
 sim_local <- list() ## store simulation results
 
 for(iter in 1:nsim){
@@ -72,7 +72,8 @@ for(iter in 1:nsim){
   ################################################################################
   ## Implement different estimation methods
   ################################################################################
-  ## fit the fmm2d model
+  ## fit the fmm2d model 
+  ## (S1): S-3; (S2): max(round(S/4),4)
   ptm <- proc.time()
   fit_fmm2d <- fmm2d(formula=Y~X, data=data, S=S, smoother="te", knots=c(max(round(S/4),4), min(round(T/4), 35)),
                      fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),  parallel = TRUE)
@@ -155,14 +156,14 @@ time_gam2d <- lapply(sim_local, '[[', 8) %>% bind_rows()
 
 colMeans(MISE_fmm2d); colMeans(MISE_gam2d)
 colMeans(cover_pw_fmm2d); colMeans(cover_pw_gam2d)
-
+colMeans(time_fmm2d); colMeans(time_gam2d)
 
 save(MISE_fmm2d, MISE_gam2d,
      cover_pw_fmm2d, cover_pw_gam2d, 
      MIAW_fmm2d, MIAW_gam2d,
      time_fmm2d, time_gam2d,
-     file = "codes/simu_results/simu1S1_10010100.RData")
-load("codes/simu_results/simu1S2_5015100.RData")
+     file = "codes/simu_results/simu1S2_5010150.RData")
+load("codes/simu_results/simu1S2_5010150.RData")
 
 
 
@@ -180,7 +181,6 @@ ggplot(est, aes(t, s, fill= y)) +
   scale_fill_gradient2(low="blue", mid="grey98",
                        high="red", space ="Lab", name=expression(paste(hat(beta), "(s,t)")))
 
-
 betaHat <- fit_fmm2d$betaHat
 est <- data.frame(y = as.vector(betaHat[[2]]), t=rep(1:T, S), s = rep(1:S, each=T)) 
 ggplot(est, aes(t, s, fill= y)) + 
@@ -195,7 +195,6 @@ ggplot(est, aes(t, s, fill= y)) +
   scale_x_continuous(breaks = seq(0, T, length.out = 5)) +
   scale_fill_gradient2(low="blue", mid="grey98",
                        high="red", space ="Lab", name=expression(paste(hat(beta), "(s,t)")))
-
 
 betaHat.var <- fit_fmm2d$betaHat.cov
 betaHat.up <- as.vector(betaHat[[2]]) + 2*sqrt(diag(betaHat.var[,,2]))
@@ -217,8 +216,6 @@ ggplot(est, aes(t, s, fill= sign)) +
   scale_x_continuous(breaks = seq(0, T, length.out = 5)) +
   scale_fill_gradient2(low="blue", mid="grey98", 
                        high="red", space ="Lab", name=expression(paste(hat(beta), "(s,t)")))
-
-
 
 
 est <- data.frame(y = fit_gam2d$X[,"est"], t=rep(1:T, S), s = rep(1:S, each=T)) 
@@ -371,11 +368,11 @@ load_results <- function(arg, val, dir, iftime = FALSE){
 
 
 #direction <- "Sample size (N)" 
-#direction <- "Number of grids (R)"
-direction <- "Number of grids (L)"
-val <- c(100, 150, 200)
+direction <- "Number of grids (R)"
+#direction <- "Number of grids (L)"
+val <- c(10, 15, 20)
 ret <- load_results(arg=direction, val=val, 
-                    dir=c("simu1S1_5010100", "simu1S1_5010150","simu1S1_5010200"))
+                    dir=c("simu1S2_5010100", "simu1S2_5015100","simu1S2_5020100"))
 
 
 p1 <- ggplot(ret$MISE, aes(x=arg, y=beta, fill=method, group = paste(method,arg))) + 
@@ -383,7 +380,7 @@ p1 <- ggplot(ret$MISE, aes(x=arg, y=beta, fill=method, group = paste(method,arg)
   theme_bw() +
   scale_fill_discrete(name = "Method", labels = c("FMM2d", "GAM2d")) + 
   labs(y = expression(paste("MISE(", hat(beta)[1], ")")), x = direction, 
-       title = expression(paste("MISE(", hat(beta)[1], ") (S1)"))) + 
+       title = expression(paste("MISE(", hat(beta)[1], ") (S2)"))) + 
   theme(axis.title.y = element_text(size = 14), axis.title.x = element_text(size = 14), 
         axis.text.y = element_text(size=13),  axis.text.x = element_text(size=13), 
         legend.title = element_text(size=14), legend.text = element_text(size=13),
@@ -395,7 +392,7 @@ p2 <- ggplot(ret$cover, aes(x=arg, y=beta, fill = method, group = paste(method,a
   theme_bw() +
   scale_fill_discrete(name = "Method", labels = c("FMM2d", "GAM2d")) + 
   labs(y = expression(paste("Coverage(", hat(beta)[1], ")")), x = direction, 
-       title = expression(paste("Coverage(", hat(beta)[1], ") (S1)"))) + 
+       title = expression(paste("Coverage(", hat(beta)[1], ") (S2)"))) + 
   theme(axis.title.y = element_text(size = 14), axis.title.x = element_text(size = 14), 
         axis.text.y = element_text(size=13),  axis.text.x = element_text(size=13), 
         legend.title = element_text(size=14), legend.text = element_text(size=13),
@@ -407,7 +404,7 @@ p3 <- ggplot(ret$MIAW, aes(x=arg, y=beta, fill = method, group = paste(method,ar
   theme_bw() +
   scale_fill_discrete(name = "Method", labels = c("FMM2d", "GAM2d")) + 
   labs(y = expression(paste("MIAW(", hat(beta)[1], ")")), x = direction, 
-       title = expression(paste("MIAW(", hat(beta)[1], ") (S1)"))) +
+       title = expression(paste("MIAW(", hat(beta)[1], ") (S2)"))) +
   theme(axis.title.y = element_text(size = 14), axis.title.x = element_text(size = 14), 
         axis.text.y = element_text(size=12),  axis.text.x = element_text(size=12), 
         legend.title = element_text(size=14), legend.text = element_text(size=13),
@@ -419,7 +416,7 @@ p4 <- ggplot(ret$time, aes(x=arg, y=elapsed/3600, fill = method, group = paste(m
   theme_bw() +
   scale_fill_discrete(name = "Method", labels = c("FMM2d", "GAM2d")) + 
   labs(y = "Computing Time (hours)", x = direction, 
-       title = "Computing Time (S1)") + 
+       title = "Computing Time (S2)") + 
   theme(axis.title.y = element_text(size = 14), axis.title.x = element_text(size = 14), 
         axis.text.y = element_text(size=13),  axis.text.x = element_text(size=13), 
         legend.title = element_text(size=14), legend.text = element_text(size=13),

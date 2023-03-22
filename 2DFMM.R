@@ -18,14 +18,18 @@
 fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.opt = list(dataType = 'DenseWithMV', methodSelectK = 'FVE'), parallel = FALSE)
 {
   
-  library(dplyr) ## organize lapply results
-  library(parallel) ## mcapply
-  #library(glmnet) ##ridge estimator
-  library(mgcv) ## tensor product smoothing
-  library(refund) ## sandwich smoothing
-  library(fdapace) ## PACE
-  library(Matrix)
-
+  ##dplyr  organize lapply results
+  #parallel mcapply
+  #mgcv tensor product smoothing
+  #refund sandwich smoothing
+  #fdapace PACE
+  #Matrix
+  
+  list.of.packages <- c("dplyr", "parallel", "mgcv", "refund", "fdapace", "Matrix")
+  new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+  if(length(new.packages)) install.packages(new.packages)
+  sapply(list.of.packages, require, character=TRUE)
+  
   model_formula <- as.character(formula)
   stopifnot(model_formula[1] == "~" & length(model_formula) == 3)
   vars <- unlist(strsplit(model_formula[3], split = ".\\+."))
@@ -81,7 +85,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.op
       
     fit_bi <- suppressMessages(lm(formula = as.formula(paste0("Yst ~ ", model_formula[3])), data=dat))
     betaTilde <- coef(fit_bi)
-    designmat <- model.matrix(fit_bi)
+    #designmat <- model.matrix(fit_bi)
     Covst <- summary(fit_bi)$sigma^2
     
     #if(method == "Ridge"){
@@ -92,7 +96,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.op
     #  Covst <- sum((pred - dat[,"Yst"])^2)/(n-length(vars)-1)
     #}
     
-    return(list(betaTilde = betaTilde, designmat = designmat, cov = Covst))
+    return(list(betaTilde = betaTilde, designmat = data.matrix(cbind(1,Xst)), cov = Covst))
   }
   
   #massive bivariate model
@@ -191,12 +195,12 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.op
   sList <- list()
   etaList <- list()
   
-  for (nt in 1:(n*T)){
+  for (nt in 1:nrow(eta)){
     ind <- which(!is.na(eta[nt,]))
     etaList[[nt]] <- eta[nt,ind]
     sList[[nt]] <- S.argvals[ind]
   }
-  
+
   fpca <- suppressWarnings(FPCA(etaList, sList, optns = fpca.opt)) #fpca$cumFVE is cumulative variance
   psi <- fpca$phi 
   xiEst <- fpca$xiEst 
@@ -206,7 +210,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.op
   for(j in 1:pc.s){
       s.cov[j,,] <- psi[, j] %*% t(psi[,j]) #fpca$fittedCov
   }
-  
+
   ##########################################################################################
   ## Step 3.3 Computing B-spline smoothing xi(t) and marginal covariance w.r.t. T 
   ##########################################################################################
@@ -257,6 +261,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.op
     for(u in s:S){
       for(t in 1:T){
         for(v in t:T){
+          print(paste(s, "and", t))
           tmp <- covBeta(s,u,t,v)
           for(p in 1:length(betaHat)){
             cov.beta.ts.tilde[(u-1)*T+v, (s-1)*T+t, p] <- 
@@ -268,6 +273,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.op
       }
     }
   }
+  
   
   ## refined smoothing estimates covariance 
   cov.beta.ts.hat <- array(0, dim = c(T*S, T*S, length(betaHat)))
