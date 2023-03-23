@@ -70,7 +70,7 @@ fit_S2 <- fmm2d(formula=Y~X, data=data, S=S, smoother="te", knots=c(max(round(S/
 min(round(T/4), 35)), fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),  parallel = TRUE)
 ```
 
-The estimates to bivariate coefficient functions under S1 and S2 are respectively shown below. 
+The estimates to bivariate coefficient functions under S1 and S2 are respectively shown as below.
 
 <p float="left">
   <img src="https://github.com/Cheng-0621/2DFMM/blob/main/figures/3Dbeta_estS1.jpeg" width="400" /> 
