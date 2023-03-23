@@ -58,7 +58,5 @@ $$
 </p>
 
 
-![intercept](3Dbeta_trueIntercept.jpeg)
-
 
 
