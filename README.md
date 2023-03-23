@@ -70,11 +70,7 @@ fit_S2 <- fmm2d(formula=Y~X, data=data, S=S, smoother="te", knots=c(max(round(S/
 min(round(T/4), 35)), fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),  parallel = TRUE)
 ```
 
-<p float="left">
-  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/figures/3Dbeta_estS1.html" width="400" /> 
-  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/figures/3Dbeta_estS1conf.html" width="400" />
-</p>
-
+{% include 3Dbeta_estS1.html %}
 
 ## Files 
 * `2DFMM.R`: The main algorithm of our proposed bivariate functional mixed model.
