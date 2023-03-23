@@ -53,8 +53,8 @@ to capture the subject-level fluctuations. The random coefficients are generated
 
 
 <p float="left">
-  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS1.jpeg" width="300" /> 
-  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS2.jpeg" width="300" />
+  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS1.jpeg" width="400" /> 
+  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS2.jpeg" width="400" />
 </p>
 
 
@@ -66,5 +66,11 @@ fit_S1 <- fmm2d(formula=Y~X, data=data, S=S, smoother="sandwich", knots=c(S-3, m
  
 fit_S2 <- fmm2d(formula=Y~X, data=data, S=S, smoother="te", knots=c(max(round(S/4),4),
 min(round(T/4), 35)), fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),  parallel = TRUE)
-
 ```
+
+## Files 
+* `2DFMM.R`: The main algorithm of our proposed bivariate functional mixed model.
+* `simu_generate.R`: The procedures to generate simulation data.
+* `demo.simu.R`: A demo script for a simulation study of case S1 and S2.
+
+## Authors
