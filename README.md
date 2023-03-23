@@ -31,7 +31,7 @@ The bivariate functional model is simulated as follows:
 
 $$Y_{i}(s,t) = \beta_{0}(s,t) + X_{i}(s)\beta_{1}(s,t) + \gamma_{i0}(t) + z_{i}(s)\gamma_{i1}(t) + \epsilon_{i}(s, t), \ \ s, t \in [0, 1].$$
 
-The fixed effect covariates are generated from $X_{i}(s) \sim N(0, 4)$ and $z_{i}(s) = 6(s-0.5)^{2} + N(0,\rho^{2})$, where $\rho$ represents how noisy the signal of repeatedly-measured visits is. For bivariate coefficient functions, we take account of two different types (S1 and S2) as shown in Figure \ref{fig:true_beta}, where S1 presents continuous non-differentiable bivariate function with local zero regions and S2 presents smooth bivariate function. The random effects are simulated as $\gamma_{ik}(t) = a_{i1}\phi_{1}(t) + a_{i2}\phi_{2}(t)$, $k=0,1$. We use the scaled orthonormal functions
+The fixed effect covariates are generated from $X_{i}(s) \sim N(0, 4)$ and $z_{i}(s) = 6(s-0.5)^{2} + N(0,\rho^{2})$, where $\rho$ represents how noisy the signal of repeatedly-measured visits is. For bivariate coefficient functions, we take account of two different types (S1 and S2) as shown below, where S1 presents continuous non-differentiable bivariate function with local zero regions and S2 presents smooth bivariate function. The random effects are simulated as $\gamma_{ik}(t) = a_{i1}\phi_{1}(t) + a_{i2}\phi_{2}(t)$, $k=0,1$. We use the scaled orthonormal functions
 
 $$
 \begin{bmatrix}
@@ -49,7 +49,13 @@ $$
 \end{cases}
 $$
 
-<intercept src="3Dbeta_trueIntercept.jpeg" width="100" height="100">
+<center class="third'>
+	<img src https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueIntercept.jpeg>
+	<img src https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS1.jpeg>
+	<img src https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS2.jpeg>
+</center> 
+
+
 ![intercept](3Dbeta_trueIntercept.jpeg)
 
 
