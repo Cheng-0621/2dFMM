@@ -72,6 +72,8 @@ min(round(T/4), 35)), fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE')
 
 {% include 3Dbeta_estS1.html %}
 
+
+
 ## Files 
 * `2DFMM.R`: The main algorithm of our proposed bivariate functional mixed model.
 * `simu_generate.R`: The procedures to generate simulation data.
