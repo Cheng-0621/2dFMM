@@ -61,9 +61,8 @@ to capture the subject-level fluctuations. The random coefficients are generated
 We are able to fit the bivariate functional mixed model. 
 
 ```  
-n <- 50 ## number of subjects
-S <- 10 ##number of observations per subject
-T <- 100 ## dimension of the functional domain
+S <- 10 #number of the longitudinal grids
+T <- 100 #number of the functional grids
 
 fit_S1 <- fmm2d(formula=Y~X, data=data, S=S, smoother="sandwich", knots=c(S-3, min(round(T/4), 35)), fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),  parallel = TRUE)
  
