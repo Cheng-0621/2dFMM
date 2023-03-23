@@ -49,11 +49,13 @@ $$
 \end{cases}
 $$
 
-<figure class="third'>
-	<img src=“https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueIntercept.jpeg”>
-	<img src=”https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS1.jpeg“>
-	<img src=“https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS2.jpeg”>
-</figure> 
+
+
+<p float="left">
+  <img src=“https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueIntercept.jpeg” width="100" />
+  <img src=“https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS1.jpeg” width="100" /> 
+  <img src="/https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS2.jpeg" width="100" />
+</p>
 
 
 ![intercept](3Dbeta_trueIntercept.jpeg)
