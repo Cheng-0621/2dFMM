@@ -31,7 +31,7 @@ The bivariate functional model is simulated as follows:
 
 $$Y_{i}(s,t) = \beta_{0}(s,t) + X_{i}(s)\beta_{1}(s,t) + \gamma_{i0}(t) + z_{i}(s)\gamma_{i1}(t) + \epsilon_{i}(s, t), \ \ s, t \in [0, 1].$$
 
-The fixed effect covariates are generated from $X_{i}(s) \sim N(0, 4)$ and $z_{i}(s) = 6(s-0.5)^{2} + N(0,\rho^{2})$, where $\rho$ represents how noisy the signal of repeatedly-measured visits is. For bivariate coefficient functions, we take account of two different types (S1 and S2) as shown below, where S1 presents continuous non-differentiable bivariate function with local zero regions and S2 presents smooth bivariate function. The random effects are simulated as $\gamma_{ik}(t) = a_{i1}\phi_{1}(t) + a_{i2}\phi_{2}(t)$, $k=0,1$. We use the scaled orthonormal functions
+The fixed-effect covariates are generated from $X_{i}(s) \sim N(0, 4)$ and $z_{i}(s) = 6(s-0.5)^{2} + N(0,\rho^{2})$, where $\rho$ represents how noisy the signal of repeatedly-measured visits is. For bivariate coefficient functions, the intercept function is  $\beta_{0}(s,t) = 3\sin(\pi(s+0.5)^{2})\cos(\pi t+0.5) + 1$, we take account of two different types (S1 and S2) as shown below, where S1 presents continuous non-differentiable bivariate function with local zero regions and S2 presents smooth bivariate function. The random effects are simulated as $\gamma_{ik}(t) = a_{i1}\phi_{1}(t) + a_{i2}\phi_{2}(t)$, $k=0,1$. We use the scaled orthonormal functions
 
 $$
 \begin{bmatrix}
@@ -49,14 +49,22 @@ $$
 \end{cases}
 $$
 
+to capture the subject-level fluctuations. The random coefficients are generated from $a_{i1} \sim N(0, 2\sigma^{2}_{B})$ and $a_{i2} \sim N(0, \sigma^{2}_{B})$ respectively and $\sigma^{2}_{B}$ depends on the relative importance of random effect $\text{SNR}_{B}$. The measurement error $\epsilon_{ij}(s,t) \sim N(0, \sigma_{\epsilon}^{2})$, where $\sigma_{\epsilon}^{2}$ depends on signal-to-noise ratio $\text{SNR}_{\epsilon}$. Here $\text{SNR}_{B}$ is defined as the ratio of the standard deviation of fixed-effect and random-effect surfaces, while $\text{SNR}_{\epsilon}$ is the ratio of the standard deviation of all liner predictors and that of the measurement errors \citep{scheipl,cui}. We set $\text{SNR}_{B} = \text{SNR}_{\epsilon} = 1$.
 
 
 <p float="left">
-  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueIntercept.jpeg" width="250" />
-  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS1.jpeg" width="250" /> 
-  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS2.jpeg" width="250" />
+  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS1.jpeg" width="300" /> 
+  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS2.jpeg" width="300" />
 </p>
 
 
+We are able to fit the bivariate functional mixed model. 
 
+```  
+fit_S1 <- fmm2d(formula=Y~X, data=data, S=S, smoother="te", knots=c(S-3, min(round(T/4), 35)),
+                   fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),  parallel = TRUE)
+ 
+fit_S2 <- fmm2d(formula=Y~X, data=data, S=S, smoother="te", knots=c(max(round(S/4),4),
+min(round(T/4), 35)), fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),  parallel = TRUE)
 
+```
