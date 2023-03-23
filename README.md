@@ -52,8 +52,8 @@ $$
 
 
 <p float="left">
-  <img src=''https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueIntercept.jpeg'' width="200" />
-  <img src=''https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS1.jpeg" width="200" /> 
+  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueIntercept.jpeg" width="200" />
+  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS1.jpeg" width="200" /> 
   <img src="https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS2.jpeg" width="200" />
 </p>
 
