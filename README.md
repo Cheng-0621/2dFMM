@@ -49,7 +49,8 @@ $$
 \end{cases}
 $$
 
-![alt text](3Dbeta_trueIntercept.jpeg)
+<intercept src=3Dbeta_trueIntercept.jpeg width="100" height="100">
+![intercept](3Dbeta_trueIntercept.jpeg)
 
 
 
