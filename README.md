@@ -14,16 +14,15 @@ fmm2d(formula, data, S, smoother = "sandwich", knots = NULL, fpca.opt = list(dat
 ``` 
 
 ### Arguments 
-*`formula`: formula two-sided formula object in lm() format, except that the response is a matrix.
-*`data`:  dataframe containing variables in formula.
-*`S`: number of longitudinal grids.
-*`smoother`: moother sandwich smoother (sandwich) or tensor product smoother (te).
-*`fpca.opt `: list of options control parameters specified by list, dataType: dense and regular (Dense); Very densely and regularly ' observed data: empirical mean and Densely recorded but irregular design, or contaminated with error: pre-smoothing for individual curves (DenseWithMV); Sparse random design (Sparse).
-*`parallel`: parallel whether to run parallel computing (True only for Linux/Mac users).
+* `formula`: formula two-sided formula object in lm() format, except that the response is a matrix.
+* `data`:  dataframe containing variables in formula.
+* `S`: number of longitudinal grids.
+* `smoother`: moother sandwich smoother (sandwich) or tensor product smoother (te).
+* `fpca.opt `: list of options control parameters specified by list, dataType: dense and regular (Dense); Very densely and regularly ' observed data: empirical mean and Densely recorded but irregular design, or contaminated with error: pre-smoothing for individual curves (DenseWithMV); Sparse random design (Sparse).
+* `parallel`: parallel whether to run parallel computing (True only for Linux/Mac users).
 
 ### Values
 * `betaHat`: The list of estimated bivariate coefficient functions.
-
-*`betaHat.cov`: The three-way array of estimated squared standard error. 
+* `betaHat.cov`: The three-way array of estimated squared standard error. 
 
 
