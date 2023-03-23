@@ -59,9 +59,8 @@ if(type==1){
 }
 
 ## fit the fmm2d model 
-## (S1): S-3; (S2): max(round(S/4),4)
 ptm <- proc.time()
-fit_S1 <- fmm2d(formula=Y~X, data=data, S=S, smoother="sandwich", knots=c(S-3, min(round(T/4), 35)),
+fit_S1 <- fmm2d(formula=Y~X, data=data, S=S, smoother="te", knots=c(S-5, min(round(T/4), 35)),
                    fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),  parallel = TRUE)
 time_S1 <- (proc.time() - ptm)[3]
 
@@ -131,7 +130,7 @@ fit_S2 <- fmm2d(formula=Y~X, data=data, S=S, smoother="te", knots=c(max(round(S/
                 fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),  parallel = TRUE)
 time_S2 <- (proc.time() - ptm)[3]
 
-#plot the 3D surface
+#plot the 3D surface 
 t.dir <- 1:T
 s.dir <- 1:S
 
@@ -145,7 +144,7 @@ fig <- plot_ly(x = s.dir, y = t.dir, z = beta_true[,,1], showscale = FALSE) %>%
 fig
 
 #betahat(s,t)
-fig <- plot_ly(x = s.dir, y = t.dir, z = fit_S1$betaHat$X, showscale = FALSE) %>% 
+fig <- plot_ly(x = s.dir, y = t.dir, z = fit_S2$betaHat$X, showscale = FALSE) %>% 
   config(
     toImageButtonOptions = list(
       format = "jpeg",
@@ -163,8 +162,8 @@ fig <- plot_ly(x = s.dir, y = t.dir, z = fit_S1$betaHat$X, showscale = FALSE) %>
 fig
 
 #CI betahat(s,t)
-zmean <- fit_S1$betaHat$X
-zvar <- diag(fit_S1$betaHat.cov[,,2])
+zmean <- fit_S2$betaHat$X
+zvar <- diag(fit_S2$betaHat.cov[,,2])
 
 fig <- plot_ly(x = s.dir, y = t.dir, 
                z = zmean + array(2*sqrt(zvar),dim=c(T,S)), showscale = FALSE) %>% 
