@@ -49,7 +49,7 @@ $$
 \end{cases}
 $$
 
-<intercept src=3Dbeta_trueIntercept.jpeg width="100" height="100">
+<intercept src="3Dbeta_trueIntercept.jpeg" width="100" height="100">
 ![intercept](3Dbeta_trueIntercept.jpeg)
 
 
