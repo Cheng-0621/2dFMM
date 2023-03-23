@@ -50,9 +50,9 @@ $$
 $$
 
 <center class="third'>
-	<img src https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueIntercept.jpeg>
-	<img src https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS1.jpeg>
-	<img src https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS2.jpeg>
+	<img src=“https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueIntercept.jpeg”>
+	<img src=”https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS1.jpeg“>
+	<img src=“https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS2.jpeg”>
 </center> 
 
 
