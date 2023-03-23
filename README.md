@@ -53,8 +53,8 @@ to capture the subject-level fluctuations. The random coefficients are generated
 
 
 <p float="left">
-  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS1.jpeg" width="400" /> 
-  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/3Dbeta_trueS2.jpeg" width="400" />
+  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/figures/3Dbeta_trueS1.jpeg" width="400" /> 
+  <img src="https://github.com/Cheng-0621/2DFMM/blob/main/figures/3Dbeta_trueS2.jpeg" width="400" />
 </p>
 
 
