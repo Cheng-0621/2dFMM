@@ -49,7 +49,7 @@ $$
 \end{cases}
 $$
 
-to capture the subject-level fluctuations. The random coefficients are generated from $a_{i1} \sim N(0, 2\sigma^{2})$ and $a_{i2} \sim N(0, \sigma^{2})$ respectively and $\sigma$ depends on the relative importance of random effect. The measurement error $\epsilon_{ij}(s,t) \sim N(0, \sigma_{\epsilon}^{2})$, where $\sigma_{\epsilon}^{2}$ depends on signal-to-noise ratio $SNR_{\epsilon}$. Here $SNR_{B}$ is defined as the ratio of the standard deviation of fixed-effect and random-effect surfaces, while $SNR_{\epsilon}$ is the ratio of the standard deviation of all liner predictors and that of the measurement errors. We set $SNR_{B} = SNR_{\epsilon} = 1$.
+to capture the subject-level fluctuations. The random coefficients are generated from $a_{i1} \sim N(0, 2\sigma^{2})$ and $a_{i2} \sim N(0, \sigma^{2})$ respectively and $\sigma^{2}$ depends on the relative importance of random effect. The measurement error $\epsilon_{ij}(s,t) \sim N(0, \sigma_{\epsilon}^{2})$, where $\sigma_{\epsilon}^{2}$ depends on signal-to-noise ratio $SNR_{\epsilon}$. Here $SNR_{B}$ is defined as the ratio of the standard deviation of fixed-effect and random-effect surfaces, while $SNR_{\epsilon}$ is the ratio of the standard deviation of all liner predictors and that of the measurement errors. We set $SNR_{B} = SNR_{\epsilon} = 1$.
 
 
 <p float="left">
