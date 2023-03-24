@@ -82,9 +82,9 @@ The estimates to bivariate coefficient functions under S1 and S2 are respectivel
 * `simu_generate.R`: The procedures to generate simulation data.
 * `simulation1.R`: Simulation study of comparison to existing methods from bivariate perspective
 * `simulation2.R`: Simulation study comparison to existing methods from univariate perspective
-* `demo.simu.R`: A demo script for a simulation study of case S1 and S2.
+* `demo_simu.R`: A demo script for a simulation study of case S1 and S2.
 * `example.RData`: a subset ($N=200$) of Shanghai adolescent physical activity data and their demographic and mental health outcomes. 
-* `demo.app.R`: A demo script for real data application. 
+* `demo_app.R`: A demo script for real data application. 
 
 
 ## Authors
