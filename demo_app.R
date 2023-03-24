@@ -60,9 +60,9 @@ ggarrange(pic[[1]],pic[[2]],pic[[3]], pic[[4]],pic[[5]], ncol=3, nrow=2)
 
 pic <- list()
 vars <-  c("stress", "anxiety", "depression","acips","erq_cr", "erq_es", "sf12v2_mcs", "sf12v2_pcs")
-for (p in 1:length(var)){
+for (p in 1:length(vars)){
   
-  formula <- paste("Y ~ gender + grade + income + edu + ", var)
+  formula <- paste("Y ~ gender + grade + income + edu + ", vars[p])
   fit_fmm2d <- fmm2d(formula=as.formula(formula), data=data, S=S, smoother="te", 
                      knots=c(4, 35), fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),
                      parallel = FALSE)
@@ -90,3 +90,6 @@ for (p in 1:length(var)){
     scale_fill_gradient2(low="Steel Blue 3", mid="grey98", 
                          high="red", space ="Lab", name=expression(paste(hat(beta), "(s,t)")))
 }
+ggarrange(pic[[1]],pic[[2]],pic[[3]],pic[[4]],
+          pic[[5]],pic[[6]],pic[[7]],pic[[8]], ncol=4, nrow=2)
+
