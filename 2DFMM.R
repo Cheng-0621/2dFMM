@@ -261,7 +261,6 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.op
     for(u in s:S){
       for(t in 1:T){
         for(v in t:T){
-          print(paste(s, "and", t))
           tmp <- covBeta(s,u,t,v)
           for(p in 1:length(betaHat)){
             cov.beta.ts.tilde[(u-1)*T+v, (s-1)*T+t, p] <- 
