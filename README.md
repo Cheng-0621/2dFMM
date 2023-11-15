@@ -19,9 +19,9 @@ fmm2d(formula, data, S, smoother = "sandwich", knots = NULL, fpca.opt = list(dat
 * `S`: number of longitudinal grids.
 * `smoother`: moother sandwich smoother (sandwich) or tensor product smoother (te).
 * `fpca.opt `: list of options control parameters specified by list, dataType: dense and regular (Dense); Very densely and regularly ' observed data: empirical mean and Densely recorded but irregular design, or contaminated with error: pre-smoothing for individual curves (DenseWithMV); Sparse random design (Sparse).
-* `pcb`: whether to obtain pointwise confidence bands, default is TRUE
-* `scb`: whether to obtain simultaneous confidence bands, default is FALSE
-* `parallel`: parallel whether to run parallel computing (True only for Linux/Mac users)
+* `pcb`: whether to obtain pointwise confidence bands, default is TRUE.
+* `scb`: whether to obtain simultaneous confidence bands, default is FALSE.
+* `parallel`: parallel whether to run parallel computing (True only for Linux/Mac users).
 * `silence`: whether to show descriptions of each step.
 
 ### Values
