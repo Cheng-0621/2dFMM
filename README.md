@@ -89,5 +89,5 @@ The estimates to bivariate coefficient functions under S1 and S2 are respectivel
 * `demo_app.R`: A demo script for real data application. 
 
 ## Authors
-Cheng Cao
+Cheng Cao, Jiguo Cao, Hao Pan, Yunting Zhang, Fan Jiang, Xinyue Li 
 
