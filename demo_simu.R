@@ -8,8 +8,8 @@ library(ggplot2)
 library(ggpubr)
 library(plotly)
 
-source("codes/simu_generate.R") 
-source("codes/2DFMM.R")
+source("simu_generate.R") 
+source("2DFMM.R")
 
 ################################################################################
 ## Set parameters

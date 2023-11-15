@@ -1,8 +1,7 @@
 rm(list = ls())
 
-setwd("~/Documents/CityU/research/Project on Shanghai Actigraph Data")
-load("codes/Github/example.RData")
-source("codes/Github/2DFMM.R")
+load("example.RData")
+source("2DFMM.R")
 
 library(dplyr) ## organize lapply results
 library(ggplot2)
