@@ -10,7 +10,7 @@ The main function of the two-dimensional fixed effect inference is:
 * `fmm2d`: Estimates bivariate coefficient functions and confidence surfaces.
 
 ```
-fmm2d(formula, data, S, smoother = "sandwich", knots = NULL, fpca.opt = list(dataType = 'DenseWithMV', methodSelectK = 'FVE'), parallel = FALSE)
+fmm2d(formula, data, S, smoother = "sandwich", knots = NULL, fpca.opt = list(dataType = 'DenseWithMV', methodSelectK = 'FVE'), pcb = TRUE, scb = FALSE, parallel = FALSE, silence = FALSE)
 ``` 
 
 ### Arguments 
@@ -19,11 +19,15 @@ fmm2d(formula, data, S, smoother = "sandwich", knots = NULL, fpca.opt = list(dat
 * `S`: number of longitudinal grids.
 * `smoother`: moother sandwich smoother (sandwich) or tensor product smoother (te).
 * `fpca.opt `: list of options control parameters specified by list, dataType: dense and regular (Dense); Very densely and regularly ' observed data: empirical mean and Densely recorded but irregular design, or contaminated with error: pre-smoothing for individual curves (DenseWithMV); Sparse random design (Sparse).
-* `parallel`: parallel whether to run parallel computing (True only for Linux/Mac users).
+* `pcb`: whether to obtain pointwise confidence bands, default is TRUE
+* `scb`: whether to obtain simultaneous confidence bands, default is FALSE
+* `parallel`: parallel whether to run parallel computing (True only for Linux/Mac users)
+* `silence`: whether to show descriptions of each step.
 
 ### Values
 * `betaHat`: The list of estimated bivariate coefficient functions.
 * `betaHat.cov`: The three-way array of estimated squared standard error. 
+* `$q_{n}$`: A parameter used to construct simultaneous confidence bands.
 
 ## Examples
 
@@ -80,12 +84,10 @@ The estimates to bivariate coefficient functions under S1 and S2 are respectivel
 ## Files 
 * `2DFMM.R`: The main algorithm of our proposed bivariate functional mixed model.
 * `simu_generate.R`: The procedures to generate simulation data.
-* `simulation1.R`: Simulation study of comparison to existing methods from bivariate perspective
-* `simulation2.R`: Simulation study comparison to existing methods from univariate perspective
 * `demo_simu.R`: A demo script for a simulation study of case S1 and S2.
 * `example.RData`: a subset ($N=200$) of Shanghai adolescent physical activity data and their demographic and mental health outcomes. 
 * `demo_app.R`: A demo script for real data application. 
 
-
 ## Authors
+Cheng Cao
 
