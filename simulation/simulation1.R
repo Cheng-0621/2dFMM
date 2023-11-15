@@ -10,9 +10,8 @@ library(mgcv)
 library(ggplot2)
 library(ggpubr)
 
-setwd("~/Documents/CityU/research/Project on Shanghai Actigraph Data")
-source("codes/simu_generate.R") 
-source("codes/2DFMM.R")
+source("simu_generate.R") 
+source("2DFMM.R")
 
 ################################################################################
 ## Set parameters

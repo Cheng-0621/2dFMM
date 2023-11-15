@@ -11,11 +11,10 @@ library(mgcv)
 library(ggplot2)
 library(ggpubr)
 
-setwd("~/Documents/CityU/research/Project on Shanghai Actigraph Data")
-source("codes/simu_generate.R") 
-source("codes/2DFMM.R")
-source("reference/codes/FUI/lfosr3s.R") ## required packages: lme4, refund, dplyr, mgcv, progress, mvtnorm, parallel
-source("reference/codes/FILF/fgee.R") 
+source("simu_generate.R") 
+source("2DFMM.R")
+source("lfosr3s.R") ## required packages: lme4, refund, dplyr, mgcv, progress, mvtnorm, parallel
+source("fgee.R") 
 
 ################################################################################
 ## Do simulations on a local laptop 
@@ -86,13 +85,13 @@ for (bi in c("T", "F")){
       ## fit the fmm2d model 
       ptm <- proc.time()
       fit_fmm2d <- fmm2d(formula=Y ~ X , data=data, S=S, smoother="te", knots=c(max(round(S/4),4), min(round(T/4, 35))),
-                         fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),  parallel = FALSE)
+                         fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),  parallel = FALSE, scb = FALSE)
       time_fmm2d <- (proc.time() - ptm)[3]
       
       ## fit the lfosr3s model
       ptm <- proc.time()
       fit_lfosr3s <- lfosr3s(formula = Y ~ X + Longit + (1 + Longit | ID), data = data, family = "gaussian", 
-                             var = TRUE, analytic = TRUE, parallel = FALSE, silent = FALSE)
+                             var = TRUE, analytic = TRUE, scb = FALSE, parallel = FALSE, silent = FALSE)
       time_lfosr3s <- (proc.time() - ptm)[3]
       
       ## fit the pffr model

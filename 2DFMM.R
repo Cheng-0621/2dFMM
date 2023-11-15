@@ -15,7 +15,9 @@
 #' @return a list containing estimated beta(s,t), covariance matrix of beta(s,t)
 
 
-fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.opt = list(dataType = 'DenseWithMV', methodSelectK = 'FVE'), parallel = FALSE)
+fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, 
+                  fpca.opt = list(dataType = 'DenseWithMV', methodSelectK = 'FVE'), 
+                  pcb = TRUE, scb = FALSE, parallel = FALSE, silence = FALSE)
 {
   
   ##dplyr  organize lapply results
@@ -25,7 +27,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.op
   #fdapace PACE
   #Matrix
   
-  list.of.packages <- c("dplyr", "parallel", "mgcv", "refund", "fdapace", "Matrix")
+  list.of.packages <- c("dplyr", "parallel", "mgcv", "refund", "fdapace", "Matrix", "mvtnorm")
   new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
   if(length(new.packages)) install.packages(new.packages)
   sapply(list.of.packages, require, character=TRUE)
@@ -53,11 +55,11 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.op
   #  Ysm[[i]] <- t(array(sm, dim=c(T,S)))
   #}
   #Y <- Ysm
-
+  
   ##########################################################################################
   ## Step 1 Bivariate pointwise estimate
   ##########################################################################################
-  print("Step 1: Bivariate pointwise estimate")
+  if (!silence) cat("Step 1: Bivariate pointwise estimate \n")
   #function "bim" fit bivariate model at t and s
   bim <- function(s,t){
     
@@ -82,7 +84,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.op
       }
     }
     dat <- data.frame(cbind(Xst, Yst))
-      
+    
     fit_bi <- suppressMessages(lm(formula = as.formula(paste0("Yst ~ ", model_formula[3])), data=dat))
     betaTilde <- coef(fit_bi)
     #designmat <- model.matrix(fit_bi)
@@ -114,7 +116,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.op
   ##########################################################################################
   ## Step 2 Smoothing
   ##########################################################################################
-  print("Step 2: Bivariate smoothing")
+  if (!silence) cat("Step 2: Bivariate smoothing \n")
   betaHat <- array(0, dim=c(T*S, ncol(betaTilde))) 
   RHat <- array(0, dim=c(T,S)) #R is the transponse of R from the paper
   lambda <- array(0, dim=c(2, ncol(betaTilde)))
@@ -161,46 +163,180 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.op
   RHat[which(RHat < 0)] <- 0
   
   rm(betaTilde, RTilde)
-
+  
   ##########################################################################################
   ## Step 3.1 Centering
   ##########################################################################################
-  print("Step 3: Computing variance of bivariate estimates")
-  
-  ## Get eta to do FPCA
-  get_eta <- function(s,t){
-    Yst <- sapply(Y, function(x) x[s,t])
-    betaHat.st <- sapply(1:(length(vars)+1), function(p) betaHat[[p]][t,s]) %>% array(dim = c(length(vars)+1, 1))
-    Ytilde <- designmat[[s]][[t]] %*% betaHat.st
-    eta <- Yst - Ytilde
-    return(eta = eta)
-  }
-  #massive eta
-  massEta <- list()
-  if(parallel == TRUE){
-    for(i in S.argvals) massEta[[i]] <- mclapply(T.argvals, get_eta, s=i, mc.cores = detectCores() - 1)
+  if(pcb == TRUE)
+  {
+    if (!silence) cat("Step 3: Computing variance of bivariate estimates \n")
+    
+    ## Get eta to do FPCA
+    get_eta <- function(s,t){
+      Yst <- sapply(Y, function(x) x[s,t])
+      betaHat.st <- sapply(1:(length(vars)+1), function(p) betaHat[[p]][t,s]) %>% array(dim = c(length(vars)+1, 1))
+      Ytilde <- designmat[[s]][[t]] %*% betaHat.st
+      eta <- Yst - Ytilde
+      return(eta = eta)
+    }
+    #massive eta
+    massEta <- list()
+    if(parallel == TRUE){
+      for(i in S.argvals) massEta[[i]] <- mclapply(T.argvals, get_eta, s=i, mc.cores = detectCores() - 1)
+    }else{
+      for(i in S.argvals) massEta[[i]] <- lapply(T.argvals, get_eta, s=i)
+    }
+    
+    eta <- NULL
+    for(i in 1:n) {
+      eta.i <- lapply(S.argvals, function(s) lapply(T.argvals, function(t) massEta[[s]][[t]][i])) %>% unlist() #ith sample
+      eta <- rbind(eta, array(eta.i, dim=c(T,S)))
+    } 
+    
+    ##########################################################################################
+    ## Step 3.2 Computing marginal covariance w.r.t. S and eigenfunctions psi
+    ##########################################################################################
+    
+    eigenS <- s.fpca(eta, S, fpca.opt)
+    s.cov <- eigenS$s.cov
+    pc.s <- eigenS$pc.s
+    xiEst <- eigenS$xiEst
+    
+    ##########################################################################################
+    ## Step 3.3 Computing B-spline smoothing xi(t) and marginal covariance w.r.t. T 
+    ##########################################################################################
+    Bt <- as.matrix(B1)
+    bsplineT <- b.lm(Bt, pc.s, xiEst)
+    t.cov <- bsplineT$t.cov
+    
+    ##########################################################################################
+    ## Step 3.4 Computing four-dim covariance operator w.r.t. beta(s,t) 
+    ##########################################################################################
+    
+    covBeta <- function(s,u,t,v){ #set s,u,t,v
+      if(s==u & t==v){
+        cEta <- RHat[t,s] 
+      }else{
+        cEta <- Reduce("+", lapply(1:pc.s,function(j) s.cov[j,s,u]*t.cov[j,t,v]))
+      }
+      xst1 <- designmat[[s]][[t]]
+      xuv2 <- designmat[[u]][[v]]
+      cBeta <- cEta * solve(t(xst1) %*% xst1) %*% t(xst1) %*% xuv2 %*% solve(t(xuv2) %*% xuv2) 
+      cBeta
+    }
+    
+    ## raw estimate of Cov(beta(s,t), beta(s,t))
+    cov.beta.ts.tilde <-  array(0, dim = c(S*T, S*T, length(betaHat)))
+    for(s in 1:S){
+      for(u in s:S){
+        for(t in 1:T){
+          for(v in t:T){
+            tmp <- covBeta(s,u,t,v)
+            for(p in 1:length(betaHat)){
+              cov.beta.ts.tilde[(u-1)*T+v, (s-1)*T+t, p] <- 
+                cov.beta.ts.tilde[(u-1)*T+t, (s-1)*T+v, p] <- 
+                cov.beta.ts.tilde[(s-1)*T+v, (u-1)*T+t, p] <- 
+                cov.beta.ts.tilde[(s-1)*T+t, (u-1)*T+v, p] <- tmp[p,p]
+            }
+          }
+        }
+      }
+    }
+    
+    ## refined smoothing estimates covariance 
+    cov.beta.ts.hat <- array(0, dim = c(T*S, T*S, length(betaHat)))
+    for(p in 1:length(betaHat)){
+      edcomp <- eigen(cov.beta.ts.tilde[,,p])
+      eigen.positive <- which(edcomp$values > 0)
+      if(length(eigen.positive) == S*T){
+        ker.trimmed <- cov.beta.ts.tilde[,,p]
+      }else{
+        ker.trimmed <- edcomp$vectors[,eigen.positive] %*% diag(edcomp$values[eigen.positive]) %*% t(edcomp$vectors[,eigen.positive])
+      }
+      cov.beta.ts.hat[,,p] <- matrix(S2kS1[[p]] %*% ker.trimmed %*% t(S2kS1[[p]]))
+    }
+    rm(ker.trimmed, cov.beta.ts.tilde)
+    qn <- rep(0, length = length(betaHat))
+    
+    ##########################################################################################
+    ## Step 3.4(optional) Simultaneous Confidence Bands 
+    ##########################################################################################
+    if(scb == TRUE)
+    {
+      if (!silence) cat("Step 3 (optional): Preparing simultaneous confidence bands \n")
+      B <- 50 #bootstrap times
+      Bs <- as.matrix(B2)
+      betaHat.boot <- NULL
+      #boostrapping betaHat
+      if (!silence) cat(paste("bootstrapping... \n"))
+      for (b in 1:B){
+        sample.ind <- sample(1:n, size = n, replace = TRUE) #bootstrap id with replacement
+        row.ind <- NULL
+        for (id in 1:length(sample.ind)){
+          row.ind <- c(row.ind, which(data$ID == sample.ind[id]))
+        }
+        data.boot <- data[row.ind,] #b_th dataset
+        fmm2d_boot <- fmm2d(formula, data = data.boot, S, smoother, knots, fpca.opt, parallel,
+                            pcb = FALSE, scb = FALSE, silence = TRUE)
+        betaHat.boot[[b]] <- fmm2d_boot$betaHat
+      }
+      #computing marginal decomposition on FPCA for beta.boot
+      psi.boot <- list()
+      ker.boot <- list()
+      betaHat.boot.avg <- list()
+      for (p in 1:length(qn)){
+        betaHat.boot.p <- lapply(1:B, function(b) betaHat.boot[[b]][[p]])
+        betaHat.boot.avg[[p]] <- Reduce("+", betaHat.boot.p)/B
+        betaHat.boot.p.demean <- lapply(1:B, function(b) betaHat.boot.p[[b]] - betaHat.boot.avg[[p]]) #demean each betaHat.boot.ps
+        eigenS.boot <- s.fpca(eta = do.call("rbind", betaHat.boot.p.demean), S = S, fpca.opt = fpca.opt)
+        psi.boot[[p]] <- eigenS.boot$psi
+        bsplineT.boot <- b.lm(Bt = Bt, pc.s = eigenS.boot$pc.s, xiEst = eigenS.boot$xiEst) 
+        ker.boot[[p]] <- bsplineT.boot$ker
+      }
+      rm(betaHat.boot.p, betaHat.boot.p.demean)
+      
+      M <- 2000 
+      for(p in 1:length(qn)){
+        sp <- sqrt(diag(cov.beta.ts.hat[,,p]))
+        qm <- lapply(1:M, function(m) array(0, dim=c(T,S)))
+        JB <- dim(ker.boot[[p]])[1]
+        for(j in 1:JB){
+          Sig <- (1/n)*ker.boot[[p]][j,,]  
+          Sig.r <- Sig[-c(1,ncol(Bt)), -c(1,ncol(Bt))] #remove tail problems
+          Bt.r <- Bt[,-c(1,ncol(Bt))] #remove tail problems
+          umat <- rmvnorm(M, mean = rep(0, ncol(Bt.r)), sigma = Sig.r)
+          Btu <- apply(umat, 1, function(x) Bt.r %*% x)  
+          qm_j <- lapply(1:M, function(m) kronecker(Btu[,m], t(psi.boot[[p]][,j])))
+          qm <- mapply("+", qm_j, qm, SIMPLIFY = FALSE)
+          betaHat.boot.p <- lapply(qm, function(q) q + betaHat.boot.avg[[p]]) 
+        }
+        qmdvar <- lapply(1:M, function(m) abs(betaHat.boot.p[[M]] - betaHat[[p]])/array(sp, dim=c(T,S)))
+        qmstar <- lapply(1:M, function(m) max(qmdvar[[m]]))
+        qn[p] <- quantile(unlist(qmstar), 0.95) 
+      }
+    }
+    
+    return(list(betaHat = betaHat, betaHat.cov = cov.beta.ts.hat, qn = qn))
+    
   }else{
-    for(i in S.argvals) massEta[[i]] <- lapply(T.argvals, get_eta, s=i)
+    
+    return(list(betaHat = betaHat))
+    
   }
-  
-  eta <- NULL
-  for(i in 1:n) {
-    eta.i <- lapply(S.argvals, function(s) lapply(T.argvals, function(t) massEta[[s]][[t]][i])) %>% unlist() #ith sample
-    eta <- rbind(eta, array(eta.i, dim=c(T,S)))
-  } 
-  
-  ##########################################################################################
-  ## Step 3.2 Computing marginal covariance w.r.t. S and eigenfunctions psi
-  ##########################################################################################
+}
+
+
+s.fpca <- function(eta, S, fpca.opt){
   sList <- list()
   etaList <- list()
+  S.argvals <- 1:S
   
   for (nt in 1:nrow(eta)){
     ind <- which(!is.na(eta[nt,]))
     etaList[[nt]] <- eta[nt,ind]
     sList[[nt]] <- S.argvals[ind]
   }
-
+  
   fpca <- suppressWarnings(FPCA(etaList, sList, optns = fpca.opt)) #fpca$cumFVE is cumulative variance
   psi <- fpca$phi 
   xiEst <- fpca$xiEst 
@@ -208,13 +344,13 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.op
   pc.s <- ncol(xiEst)
   s.cov <- array(0, dim=c(pc.s, S, S))
   for(j in 1:pc.s){
-      s.cov[j,,] <- psi[, j] %*% t(psi[,j]) #fpca$fittedCov
+    s.cov[j,,] <- psi[, j] %*% t(psi[,j]) #fpca$fittedCov
   }
+  return(list(s.cov=s.cov, pc.s=pc.s, xiEst=xiEst, psi=psi))
+}
 
-  ##########################################################################################
-  ## Step 3.3 Computing B-spline smoothing xi(t) and marginal covariance w.r.t. T 
-  ##########################################################################################
-  Bt <- as.matrix(B1)
+
+b.lm <- function(Bt, pc.s, xiEst){
   b <- array(0, dim=c(n,ncol(Bt),pc.s))
   
   bspl.fit <- function(i){
@@ -228,66 +364,16 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, fpca.op
     bspl.result <- lapply(1:n, function(i) bspl.fit(i))
     b[,,j] <- bspl.result %>% bind_rows() %>% as.matrix()
   }
-     
+  
   #store marginal covariance of T 
   t.cov <- array(0, dim=c(pc.s, T, T))
+  ker <- array(0, dim=c(pc.s, ncol(Bt), ncol(Bt)))
   for(j in 1:pc.s){
-    ker <- array(0, dim=c(ncol(Bt), ncol(Bt)))
     for (i in 1:n){
-      ker <- ker + kronecker(t(b[i,,j]), b[i,,j])
+      ker[j,,] <- ker[j,,] + kronecker(t(b[i,,j]), b[i,,j])
     }
-    t.cov[j,,] <- (1/n) * Bt %*% ker %*% t(Bt)
+    t.cov[j,,] <- (1/n) * Bt %*% ker[j,,] %*% t(Bt)
   }
-
-  ##########################################################################################
-  ## Step 3.4 Computing four-dim covariance operator w.r.t. beta(s,t) 
-  ##########################################################################################
-    
-  covBeta <- function(s,u,t,v){ #set s,u,t,v
-    if(s==u & t==v){
-      cEta <- RHat[t,s] 
-    }else{
-      cEta <- Reduce("+", lapply(1:pc.s,function(j) s.cov[j,s,u]*t.cov[j,t,v]))
-    }
-    xst1 <- designmat[[s]][[t]]
-    xuv2 <- designmat[[u]][[v]]
-    cBeta <- cEta * solve(t(xst1) %*% xst1) %*% t(xst1) %*% xuv2 %*% solve(t(xuv2) %*% xuv2) 
-    cBeta
-  }
-  
-  ## raw estimate of Cov(beta(s,t), beta(s,t))
-  cov.beta.ts.tilde <-  array(0, dim = c(S*T, S*T, length(betaHat)))
-  for(s in 1:S){
-    for(u in s:S){
-      for(t in 1:T){
-        for(v in t:T){
-          tmp <- covBeta(s,u,t,v)
-          for(p in 1:length(betaHat)){
-            cov.beta.ts.tilde[(u-1)*T+v, (s-1)*T+t, p] <- 
-              cov.beta.ts.tilde[(u-1)*T+t, (s-1)*T+v, p] <- 
-              cov.beta.ts.tilde[(s-1)*T+v, (u-1)*T+t, p] <- 
-              cov.beta.ts.tilde[(s-1)*T+t, (u-1)*T+v, p] <- tmp[p,p]
-          }
-        }
-      }
-    }
-  }
-  
-  
-  ## refined smoothing estimates covariance 
-  cov.beta.ts.hat <- array(0, dim = c(T*S, T*S, length(betaHat)))
-  for(p in 1:length(betaHat)){
-    edcomp <- eigen(cov.beta.ts.tilde[,,p])
-    eigen.positive <- which(edcomp$values > 0)
-    if(length(eigen.positive) == S*T){
-      ker.trimmed <- cov.beta.ts.tilde[,,p]
-    }else{
-      ker.trimmed <- edcomp$vectors[,eigen.positive] %*% diag(edcomp$values[eigen.positive]) %*% t(edcomp$vectors[,eigen.positive])
-    }
-    cov.beta.ts.hat[,,p] <- matrix(S2kS1[[p]] %*% ker.trimmed %*% t(S2kS1[[p]]))
-  }
-  
-  rm(cov.beta.ts.tilde)
-
-  return(list(betaHat = betaHat, betaHat.cov = cov.beta.ts.hat))
+  return(list(t.cov=t.cov, ker=ker))
 }
+
