@@ -61,7 +61,7 @@ if(type==1){
 ## fit the fmm2d model 
 ptm <- proc.time()
 fit_S1 <- fmm2d(formula=Y~X, data=data, S=S, smoother="sandwich", knots=c(S-6, min(round(T/4), 35)),
-                   fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),  parallel = TRUE)
+                   fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'), pcb = TRUE, scb = TRUE, parallel = TRUE)
 time_S1 <- (proc.time() - ptm)[3]
 
 #plot the 3D surface
