@@ -21,7 +21,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
 {
   
   ##dplyr  organize lapply results
-  #parallel mcapply
+  #parallel mclapply
   #mgcv tensor product smoothing
   #refund sandwich smoothing
   #fdapace PACE
@@ -266,20 +266,16 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
       if (!silence) cat("Step 3 (optional): Preparing simultaneous confidence bands \n")
       B <- 50 #bootstrap times
       Bs <- as.matrix(B2)
-      betaHat.boot <- NULL
+      betaHat.boot <- list()
       #boostrapping betaHat
       if (!silence) cat(paste("bootstrapping... \n"))
-      for (b in 1:B){
-        sample.ind <- sample(1:n, size = n, replace = TRUE) #bootstrap id with replacement
-        row.ind <- NULL
-        for (id in 1:length(sample.ind)){
-          row.ind <- c(row.ind, which(data$ID == sample.ind[id]))
-        }
-        data.boot <- data[row.ind,] #b_th dataset
-        fmm2d_boot <- fmm2d(formula, data = data.boot, S, smoother, knots, fpca.opt, parallel,
-                            pcb = FALSE, scb = FALSE, silence = TRUE)
-        betaHat.boot[[b]] <- fmm2d_boot$betaHat
+      
+      if(parallel == TRUE){
+        betaHat.boot <- mclapply(1:B, fmm2d.boot, mc.cores = detectCores() - 1)
+      }else{
+        betaHat.boot <- lapply(1:B, fmm2d.boot)
       }
+      
       #computing marginal decomposition on FPCA for beta.boot
       psi.boot <- list()
       ker.boot <- list()
@@ -295,7 +291,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
       }
       rm(betaHat.boot.p, betaHat.boot.p.demean)
       
-      M <- 2000 
+      M <- 2000
       for(p in 1:length(qn)){
         sp <- sqrt(diag(cov.beta.ts.hat[,,p]))
         qm <- lapply(1:M, function(m) array(0, dim=c(T,S)))
@@ -377,3 +373,16 @@ b.lm <- function(Bt, pc.s, xiEst){
   return(list(t.cov=t.cov, ker=ker))
 }
 
+
+fmm2d.boot <- function(b){
+  sample.ind <- sample(1:n, size = n, replace = TRUE) #bootstrap id with replacement
+  row.ind <- NULL
+  for (id in 1:length(sample.ind)){
+    row.ind <- c(row.ind, which(data$ID == sample.ind[id]))
+  }
+  data.boot <- data[row.ind,] #b_th dataset
+  fmm2d_boot <- fmm2d(formula, data = data.boot, S, smoother, knots, fpca.opt, parallel = TRUE,
+                      pcb = FALSE, scb = FALSE, silence = TRUE)
+  return(fmm2d_boot$betaHat)
+}
+  
