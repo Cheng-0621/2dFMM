@@ -28,7 +28,7 @@ fmm2d(formula, data, S, smoother = "sandwich", knots = NULL, fpca.opt = list(dat
 ### Values
 * `betaHat`: The list of estimated bivariate coefficient functions.
 * `betaHat.cov`: The three-way array of estimated squared standard error. 
-* `q_{n}`: A parameter used to construct simultaneous confidence bands.
+* $`q_{n}`: A parameter used to construct simultaneous confidence bands.
 
 ## Examples
 
