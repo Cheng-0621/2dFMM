@@ -227,16 +227,45 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
     
     ## raw estimate of Cov(beta(s,t), beta(s,t))
     cov.beta.ts.tilde <-  array(0, dim = c(S*T, S*T, length(betaHat)))
-    for(s in 1:S){
-      for(u in s:S){
+    if(parallel == TRUE){
+      covBeta.parallel <- function(s.par, u.par){
+        cov.beta <- array(0, dim = c(T, T, length(betaHat)))
         for(t in 1:T){
           for(v in t:T){
-            tmp <- covBeta(s,u,t,v)
+            tmp <- covBeta(s.par,u.par,t,v)
             for(p in 1:length(betaHat)){
-              cov.beta.ts.tilde[(u-1)*T+v, (s-1)*T+t, p] <- 
-                cov.beta.ts.tilde[(u-1)*T+t, (s-1)*T+v, p] <- 
-                cov.beta.ts.tilde[(s-1)*T+v, (u-1)*T+t, p] <- 
-                cov.beta.ts.tilde[(s-1)*T+t, (u-1)*T+v, p] <- tmp[p,p]
+              cov.beta[t, v, p] <- 
+                cov.beta[v, t, p] <- tmp[p,p]
+            }
+          }
+        }
+        return(cov.beta)
+      }
+      #parallel computing S domain
+      tmp <- list()
+      for(s in S.argvals) {
+        tmp[[s]] <- mclapply(s:S, covBeta.parallel, s.par=s, mc.cores = detectCores() - 1)
+        for(up in 1:length(tmp[[s]])){
+          for(p in 1:length(betaHat)){
+            # put each element to the right position
+            u <- s - 1 + up
+            cov.beta.ts.tilde[((s-1)*T+1):(s*T), ((u-1)*T+1):(u*T), p] <-
+              cov.beta.ts.tilde[((u-1)*T+1):(u*T), ((s-1)*T+1):(s*T), p] <- tmp[[s]][[up]][,,p]  
+          }
+        }
+      }
+    }else{
+      for(s in 1:S){
+        for(u in s:S){
+          for(t in 1:T){
+            for(v in t:T){
+              tmp <- covBeta(s,u,t,v)
+              for(p in 1:length(betaHat)){
+                cov.beta.ts.tilde[(u-1)*T+v, (s-1)*T+t, p] <- 
+                  cov.beta.ts.tilde[(u-1)*T+t, (s-1)*T+v, p] <- 
+                  cov.beta.ts.tilde[(s-1)*T+v, (u-1)*T+t, p] <- 
+                  cov.beta.ts.tilde[(s-1)*T+t, (u-1)*T+v, p] <- tmp[p,p]
+              }
             }
           }
         }
@@ -265,16 +294,27 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
     {
       if (!silence) cat("Step 3 (optional): Preparing simultaneous confidence bands \n")
       B <- 50 #bootstrap times
-      Bs <- as.matrix(B2)
-      betaHat.boot <- list()
+      
+      fmm2d.boot <- function(b){
+        sample.ind <- sample(1:n, size = n, replace = TRUE) #bootstrap id with replacement
+        row.ind <- NULL
+        for (id in 1:length(sample.ind)){
+          row.ind <- c(row.ind, which(data$ID == sample.ind[id]))
+        }
+        data.boot <- data[row.ind,] #b_th dataset
+        fmm2d.boot.result <- fmm2d(formula = formula, data = data.boot, S = S, smoother, knots = knots, fpca.opt = fpca.opt, parallel = TRUE,
+                                   pcb = FALSE, scb = FALSE, silence = TRUE)
+        return(fmm2d.boot.result$betaHat)
+      }
+      
       #boostrapping betaHat
       if (!silence) cat(paste("bootstrapping... \n"))
-      
       if(parallel == TRUE){
         betaHat.boot <- mclapply(1:B, fmm2d.boot, mc.cores = detectCores() - 1)
       }else{
         betaHat.boot <- lapply(1:B, fmm2d.boot)
       }
+      if (!silence) cat(paste("bootstrapping finished \n"))
       
       #computing marginal decomposition on FPCA for beta.boot
       psi.boot <- list()
@@ -374,15 +414,6 @@ b.lm <- function(Bt, pc.s, xiEst){
 }
 
 
-fmm2d.boot <- function(b){
-  sample.ind <- sample(1:n, size = n, replace = TRUE) #bootstrap id with replacement
-  row.ind <- NULL
-  for (id in 1:length(sample.ind)){
-    row.ind <- c(row.ind, which(data$ID == sample.ind[id]))
-  }
-  data.boot <- data[row.ind,] #b_th dataset
-  fmm2d_boot <- fmm2d(formula, data = data.boot, S, smoother, knots, fpca.opt, parallel = TRUE,
-                      pcb = FALSE, scb = FALSE, silence = TRUE)
-  return(fmm2d_boot$betaHat)
-}
-  
+
+
+
