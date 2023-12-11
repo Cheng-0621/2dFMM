@@ -291,7 +291,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
       }
       rm(betaHat.boot.p, betaHat.boot.p.demean)
       
-      M <- 2000
+      M <- 5000
       for(p in 1:length(qn)){
         sp <- sqrt(diag(cov.beta.ts.hat[,,p]))
         qm <- lapply(1:M, function(m) array(0, dim=c(T,S)))
