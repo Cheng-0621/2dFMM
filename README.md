@@ -15,7 +15,7 @@ fmm2d(formula, data, S, smoother = "sandwich", knots = NULL, fpca.opt = list(dat
 ``` 
 
 ### Arguments 
-* `formula`: formula two-sided formula object in lm() format, except that the response is a matrix.
+* `formula`: formula two-sided formula object in lm() format, except that the response is a matrix. Noted that a covariate with $m$ categories ($m > 2$) is necessary to be transformed to $m-1$ indicator variable before fitting the model.
 * `data`:  dataframe containing variables in the formula.
 * `S`: number of longitudinal grids.
 * `smoother`: moother sandwich smoother (sandwich) or tensor product smoother (te).
