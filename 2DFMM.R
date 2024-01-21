@@ -296,7 +296,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
       B <- 50 #bootstrap times
       
       fmm2d.boot <- function(b){
-        sample.ind <- sample(1:n, size = n, replace = TRUE) #bootstrap id with replacement
+        sample.ind <- sample(unique(data$ID), size = n, replace = TRUE) #bootstrap id with replacement
         row.ind <- NULL
         for (id in 1:length(sample.ind)){
           row.ind <- c(row.ind, which(data$ID == sample.ind[id]))
