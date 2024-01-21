@@ -1,7 +1,7 @@
 #' Fit longitudinal 2D functional mixed model regression using the proposed 3-step approach
 #' 
 #' @param formula two-sided formula object in lm() format, except that the response is a matrix  
-#' @param data dataframe containing variables in formula; 
+#' @param data dataframe containing variables in formula and ID column
 #' dataframe contains covariates (vec or data.frame) and response (data.frame)
 #' @param S number of visits
 #' method="OLS" OLS estimator, or otherwise, Ridge estimator is only applied when there are at least two covariates of interest
