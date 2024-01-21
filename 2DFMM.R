@@ -1,7 +1,7 @@
 #' Fit longitudinal 2D functional mixed model regression using the proposed 3-step approach
 #' 
 #' @param formula two-sided formula object in lm() format, except that the response is a matrix  
-#' @param data dataframe containing variables in formula; 
+#' @param data dataframe containing variables in formula and ID column
 #' dataframe contains covariates (vec or data.frame) and response (data.frame)
 #' @param S number of visits
 #' method="OLS" OLS estimator, or otherwise, Ridge estimator is only applied when there are at least two covariates of interest
@@ -296,7 +296,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
       B <- 50 #bootstrap times
       
       fmm2d.boot <- function(b){
-        sample.ind <- sample(1:n, size = n, replace = TRUE) #bootstrap id with replacement
+        sample.ind <- sample(unique(data$ID), size = n, replace = TRUE) #bootstrap id with replacement
         row.ind <- NULL
         for (id in 1:length(sample.ind)){
           row.ind <- c(row.ind, which(data$ID == sample.ind[id]))
