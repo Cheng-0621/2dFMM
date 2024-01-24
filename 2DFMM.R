@@ -1,7 +1,7 @@
 #' Fit longitudinal 2D functional mixed model regression using the proposed 3-step approach
 #' 
 #' @param formula two-sided formula object in lm() format, except that the response is a matrix  
-#' @param data dataframe containing variables in formula and ID column
+#' @param data dataframe containing variables in formula and ID column; 
 #' dataframe contains covariates (vec or data.frame) and response (data.frame)
 #' @param S number of visits
 #' method="OLS" OLS estimator, or otherwise, Ridge estimator is only applied when there are at least two covariates of interest
@@ -42,8 +42,13 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
   S.argvals <- 1:S
   Y <- lapply(1:n, function(i) data[,model_formula[2]][((i-1)*S+1):(i*S),])
   var.mat <- NULL
+  var.bin <- NULL
+  is.binary.all <- function(x) {
+    all(x == 0 | x == 1)
+  }
   for(v in vars){
     if(is.array(data[,v])) var.mat <- c(v,var.mat) #determine which covariate is bivariate function
+    if(is.binary.all(data[,v])) var.bin  <- c(v,var.bin) #determine which covariate is binary 
   } 
   
   ###############Presmoothing  
@@ -89,15 +94,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
     betaTilde <- coef(fit_bi)
     #designmat <- model.matrix(fit_bi)
     Covst <- summary(fit_bi)$sigma^2
-    
-    #if(method == "Ridge"){
-    #  fit_bi <- suppressMessages(cv.glmnet(x=matrix(dat[,model_formula[3]]), y=dat[,"Yst"], alpha=0))
-    #  betaTilde <- as.numeric(coef(fit_bi))
-    #  designmat <- model.matrix(~ dat[,model_formula[3]])
-    #  pred <- predict(fit_bi, newx = dat[,model_formula[3]])
-    #  Covst <- sum((pred - dat[,"Yst"])^2)/(n-length(vars)-1)
-    #}
-    
+
     return(list(betaTilde = betaTilde, designmat = data.matrix(cbind(1,Xst)), cov = Covst))
   }
   
@@ -108,7 +105,6 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
   }else{
     for(i in S.argvals) massm[[i]] <- lapply(T.argvals, bim, s=i)
   }
-  
   betaTilde <- lapply(S.argvals, function(i) lapply(massm[[i]], '[[', 1) %>% bind_rows()) %>% bind_rows()
   designmat <- lapply(S.argvals, function(i) lapply(massm[[i]], '[[', 2)) 
   RTilde <- lapply(S.argvals, function(i) lapply(massm[[i]], '[[', 3) %>% unlist()) %>% do.call("cbind",.)
@@ -250,7 +246,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
             # put each element to the right position
             u <- s - 1 + up
             cov.beta.ts.tilde[((s-1)*T+1):(s*T), ((u-1)*T+1):(u*T), p] <-
-              cov.beta.ts.tilde[((u-1)*T+1):(u*T), ((s-1)*T+1):(s*T), p] <- tmp[[s]][[up]][,,p]  
+            cov.beta.ts.tilde[((u-1)*T+1):(u*T), ((s-1)*T+1):(s*T), p] <- tmp[[s]][[up]][,,p]  
           }
         }
       }
@@ -262,9 +258,9 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
               tmp <- covBeta(s,u,t,v)
               for(p in 1:length(betaHat)){
                 cov.beta.ts.tilde[(u-1)*T+v, (s-1)*T+t, p] <- 
-                  cov.beta.ts.tilde[(u-1)*T+t, (s-1)*T+v, p] <- 
-                  cov.beta.ts.tilde[(s-1)*T+v, (u-1)*T+t, p] <- 
-                  cov.beta.ts.tilde[(s-1)*T+t, (u-1)*T+v, p] <- tmp[p,p]
+                cov.beta.ts.tilde[(u-1)*T+t, (s-1)*T+v, p] <- 
+                cov.beta.ts.tilde[(s-1)*T+v, (u-1)*T+t, p] <- 
+                cov.beta.ts.tilde[(s-1)*T+t, (u-1)*T+v, p] <- tmp[p,p]
               }
             }
           }
@@ -293,17 +289,43 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
     if(scb == TRUE)
     {
       if (!silence) cat("Step 3 (optional): Preparing simultaneous confidence bands \n")
+      
       B <- 50 #bootstrap times
+      check_legal <- function(data.boot, var.bin){
+        legal <- rep(NA, length(var.bin))
+        for(i in 1:length(var.bin)) legal[i] <- all(data.boot[,var.bin[i]] == 0) | all(data.boot[,var.bin[i]] == 1)
+        return(all(legal == FALSE))
+      }
       
       fmm2d.boot <- function(b){
-        sample.ind <- sample(unique(data$ID), size = n, replace = TRUE) #bootstrap id with replacement
-        row.ind <- NULL
-        for (id in 1:length(sample.ind)){
-          row.ind <- c(row.ind, which(data$ID == sample.ind[id]))
+        i <- 0
+        while(TRUE){
+          i <- i + 1
+          sample.ind <- sample(unique(data$ID), size = n, replace = TRUE) #bootstrap id with replacement
+          row.ind <- NULL
+          for (id in 1:length(sample.ind)){
+            row.ind <- c(row.ind, which(data$ID == sample.ind[id]))
+          }
+          data.boot <- data[row.ind,] #b_th dataset
+  
+          if(check_legal(data.boot, var.bin) | is.null(var.bin)){
+            #if all binary covariates are valid or no binary covariate
+            fmm2d.boot.result <- try(fmm2d(formula = formula, data = data.boot, S = S, smoother, knots = knots, 
+                                           fpca.opt = fpca.opt, parallel = FALSE,
+                                           pcb = FALSE, scb = FALSE, silence = TRUE), silent = TRUE)
+            
+            if ('try-error' %in% class(fmm2d.boot.result)){
+              #if fmm2d encounters error
+              next
+            }else{
+              break
+            }
+          }else{
+            next
+          }
+          if(i == 100) stop("Please check the binary covariates if they contains both categories.")
+          gc()
         }
-        data.boot <- data[row.ind,] #b_th dataset
-        fmm2d.boot.result <- fmm2d(formula = formula, data = data.boot, S = S, smoother, knots = knots, fpca.opt = fpca.opt, parallel = TRUE,
-                                   pcb = FALSE, scb = FALSE, silence = TRUE)
         return(fmm2d.boot.result$betaHat)
       }
       
@@ -312,7 +334,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
       if(parallel == TRUE){
         betaHat.boot <- mclapply(1:B, fmm2d.boot, mc.cores = detectCores() - 1)
       }else{
-        betaHat.boot <- lapply(1:B, fmm2d.boot)
+        betaHat.boot <- lapply(1:B, fmm2d.boot) 
       }
       if (!silence) cat(paste("bootstrapping finished \n"))
       
@@ -331,7 +353,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
       }
       rm(betaHat.boot.p, betaHat.boot.p.demean)
       
-      M <- 2000
+      M <- 5000
       for(p in 1:length(qn)){
         sp <- sqrt(diag(cov.beta.ts.hat[,,p]))
         qm <- lapply(1:M, function(m) array(0, dim=c(T,S)))
@@ -417,3 +439,4 @@ b.lm <- function(Bt, pc.s, xiEst){
 
 
 
+  
