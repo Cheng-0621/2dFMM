@@ -68,7 +68,7 @@ bootstrap <- function(formula, data, S, T, knots, betaHat, betaHatcov, B, M, smo
     }
     qmdvar <- lapply(1:M, function(m) abs(betaHat.boot.p[[M]] - betaHat[[p]])/array(sp, dim=c(T,S)))
     qmstar <- lapply(1:M, function(m) max(qmdvar[[m]]))
-    qn[p] <- quantile(unlist(qmstar), 0.80) 
+    qn[p] <- quantile(unlist(qmstar), 0.95) 
     
   }
   return(qn)
