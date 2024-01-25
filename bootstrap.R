@@ -1,4 +1,4 @@
-#' An individual file to obain SCB by bootstrap method. It is decoupled with PCB and gives more stable way. 
+#' An individual file to obtain SCB by bootstrap method. It is decoupled with PCB and gives more stable way. 
 
 bootstrap <- function(formula, data, S, T, knots, betaHat, betaHatcov, B, M, smoother){
   T.argvals <- 1:T
