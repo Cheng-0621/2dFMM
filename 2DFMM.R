@@ -10,9 +10,12 @@
 #' @param fpca.opt A list of options control parameters specified by list, dataType: dense and regular (Dense); Very densely and regularly 
 #' observed data: empirical mean and Densely recorded but irregular design, or contaminated with error: pre-smoothing for individual 
 #' curves (DenseWithMV); Sparse random design (Sparse)
-#' @param parallel whether to run parallel computing (True only for Linux/Mac users)
+#' @param pcb whether to obtain covariance estimates and pointiwse confidence bands (PCB), default is TRUE
+#' @param scb whether to obtain simultaneous confidence bands (SCB), default is FALSE
+#' @param silence whether to suppress logging information during program running, default is FALSE
+#' @param parallel whether to run parallel computing (TRUE only for Linux/Mac users)
 #' @export
-#' @return a list containing estimated beta(s,t), covariance matrix of beta(s,t)
+#' @return a list containing estimated beta(s,t), covariance matrix of beta(s,t), qn (zero for PCB and non-zero for SCB)
 
 
 fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, 
@@ -299,6 +302,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
       
       fmm2d.boot <- function(b){
         i <- 0
+        print(b)
         while(TRUE){
           i <- i + 1
           sample.ind <- sample(unique(data$ID), size = n, replace = TRUE) #bootstrap id with replacement
