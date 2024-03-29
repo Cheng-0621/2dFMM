@@ -372,7 +372,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
           qm <- mapply("+", qm_j, qm, SIMPLIFY = FALSE)
           betaHat.boot.p <- lapply(qm, function(q) q + betaHat.boot.avg[[p]]) 
         }
-        qmdvar <- lapply(1:M, function(m) abs(betaHat.boot.p[[M]] - betaHat[[p]])/array(sp, dim=c(T,S)))
+        qmdvar <- lapply(1:M, function(m) abs(betaHat.boot.p[[m]] - betaHat[[p]])/array(sp, dim=c(T,S)))
         qmstar <- lapply(1:M, function(m) max(qmdvar[[m]]))
         qn[p] <- quantile(unlist(qmstar), 0.95) 
       }
