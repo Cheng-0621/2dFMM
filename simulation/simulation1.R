@@ -10,16 +10,17 @@ library(mgcv)
 library(ggplot2)
 library(ggpubr)
 
-source("simu_generate.R") 
-source("2DFMM.R")
+setwd("~/Documents/CityU/research/2DFMM/")
+source("codes/simu_generate.R") 
+source("codes/2DFMM.R") 
 
 ################################################################################
 ## Set parameters
 ################################################################################
 n <- 50 ## number of subjects
 S <- 10 ##number of observations per subject
-T <- 150 ## dimension of the functional domain
-type <- 2 ##beta_true type 
+T <- 100 ## dimension of the functional domain
+type <- 1 ##beta_true type 
 SNR_B <- 1 ## relative importance of random effects
 SNR_sigma <- 1 ## signal-to-noise ratio
 family <- "gaussian" ## family of longitudinal functional data

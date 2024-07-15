@@ -363,7 +363,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
         qm <- lapply(1:M, function(m) array(0, dim=c(T,S)))
         JB <- dim(ker.boot[[p]])[1]
         for(j in 1:JB){
-          Sig <- (1/n)*ker.boot[[p]][j,,]  
+          Sig <- (1/B)*ker.boot[[p]][j,,]  
           Sig.r <- Sig[-c(1,ncol(Bt)), -c(1,ncol(Bt))] #remove tail problems
           Bt.r <- Bt[,-c(1,ncol(Bt))] #remove tail problems
           umat <- rmvnorm(M, mean = rep(0, ncol(Bt.r)), sigma = Sig.r)

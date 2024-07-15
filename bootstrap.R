@@ -1,4 +1,5 @@
-#An separate file to obtain SCB by bootstrap method. It is decoupled with PCB from the main files and gives more stable way. 
+# An separate file to obtain SCB by bootstrap method. 
+# It is decoupled with PCB from the main files and gives slower but more stable way. 
 
 bootstrap <- function(formula, data, S, T, knots, betaHat, betaHatcov, B, M, smoother){
   T.argvals <- 1:T
@@ -57,7 +58,7 @@ bootstrap <- function(formula, data, S, T, knots, betaHat, betaHatcov, B, M, smo
     qm <- lapply(1:M, function(m) array(0, dim=c(T,S)))
     JB <- dim(ker.boot[[p]])[1]
     for(j in 1:JB){
-      Sig <- (1/n)*ker.boot[[p]][j,,]  
+      Sig <- (1/B)*ker.boot[[p]][j,,]  
       Sig.r <- Sig[-c(1,ncol(Bt)), -c(1,ncol(Bt))] #remove tail problems
       Bt.r <- Bt[,-c(1,ncol(Bt))] #remove tail problems
       umat <- rmvnorm(M, mean = rep(0, ncol(Bt.r)), sigma = Sig.r)
@@ -66,7 +67,7 @@ bootstrap <- function(formula, data, S, T, knots, betaHat, betaHatcov, B, M, smo
       qm <- mapply("+", qm_j, qm, SIMPLIFY = FALSE)
       betaHat.boot.p <- lapply(qm, function(q) q + betaHat.boot.avg[[p]]) 
     }
-    qmdvar <- lapply(1:M, function(m) abs(betaHat.boot.p[[M]] - betaHat[[p]])/array(sp, dim=c(T,S)))
+    qmdvar <- lapply(1:M, function(m) abs(betaHat.boot.p[[m]] - betaHat[[p]])/array(sp, dim=c(T,S)))
     qmstar <- lapply(1:M, function(m) max(qmdvar[[m]]))
     qn[p] <- quantile(unlist(qmstar), 0.95) 
     
