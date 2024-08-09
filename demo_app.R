@@ -18,7 +18,7 @@ S <- nrow(Y[[1]]) #the number of longitudinal grids
 ###baseline model#### 
 #####################
 fit_baseline <- fmm2d(formula=Y ~ gender + grade + income + edu, data=data, S=7, smoother="te", 
-                   knots=c(4, 35), fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),  parallel = TRUE)
+                   knots=c(4, 35),  parallel = TRUE)
 
 
 vars <- c("intercept", "gender", "grade", "income", "edu")
@@ -63,8 +63,7 @@ for (p in 1:length(vars)){
   
   formula <- paste("Y ~ gender + grade + income + edu + ", vars[p])
   fit_fmm2d <- fmm2d(formula=as.formula(formula), data=data, S=S, smoother="te", 
-                     knots=c(4, 35), fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),
-                     parallel = FALSE)
+                     knots=c(4, 35), parallel = FALSE)
   
   varBetaEst <- fit_fmm2d$betaHat[[6]]
   varBetaEstcov <- fit_fmm2d$betaHat.cov[,,6]

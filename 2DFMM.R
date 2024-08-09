@@ -4,22 +4,21 @@
 #' @param data dataframe containing variables in formula and ID column; 
 #' dataframe contains covariates (vec or data.frame) and response (data.frame)
 #' @param S number of visits
-#' method="OLS" OLS estimator, or otherwise, Ridge estimator is only applied when there are at least two covariates of interest
 #' @param smoother sandwich smoother (sandwich) or tensor product smoother (te)
 #' @param knots=c(Sknots,Tknots) the number of knots for S and T
-#' @param fpca.opt A list of options control parameters specified by list, dataType: dense and regular (Dense); Very densely and regularly 
-#' observed data: empirical mean and Densely recorded but irregular design, or contaminated with error: pre-smoothing for individual 
-#' curves (DenseWithMV); Sparse random design (Sparse)
+#' @param bootstrap.opt bootstrapping options
+#' @param bandwidth.control correlation correction and adjustment for confidence bands bandwidth control 
 #' @param pcb whether to obtain covariance estimates and pointiwse confidence bands (PCB), default is TRUE
 #' @param scb whether to obtain simultaneous confidence bands (SCB), default is FALSE
 #' @param silence whether to suppress logging information during program running, default is FALSE
 #' @param parallel whether to run parallel computing (TRUE only for Linux/Mac users)
 #' @export
-#' @return a list containing estimated beta(s,t), covariance matrix of beta(s,t), qn (zero for PCB and non-zero for SCB)
-
+#' @return a list containing estimated beta(s,t), covariance matrix of beta(s,t), 
+#' qn (zero for PCB and non-zero for SCB), vm for computing p-values
 
 fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL, 
-                  fpca.opt = list(dataType = 'DenseWithMV', methodSelectK = 'FVE'), 
+                  bootstrap.opt = list(B = 100, M = 10000),
+                  bandwidth.control = list(d = 2, adjust = 2.4, correct = 1), 
                   pcb = TRUE, scb = FALSE, parallel = FALSE, silence = FALSE)
 {
   
@@ -47,22 +46,12 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
   var.mat <- NULL
   var.bin <- NULL
   is.binary.all <- function(x) {
-    all(x == 0 | x == 1)
+    length(levels(x)) == 2
   }
   for(v in vars){
     if(is.array(data[,v])) var.mat <- c(v,var.mat) #determine which covariate is bivariate function
     if(is.binary.all(data[,v])) var.bin  <- c(v,var.bin) #determine which covariate is binary 
   } 
-  
-  ###############Presmoothing  
-  #Ysm <- list()
-  #for (i in 1:n) {
-  #  ori  <- as.vector(t(Y[[i]]))
-  #  sm <- stats::filter(ori, sides=2, filter = (rep(1, 10)/10)) ## smooth accelerometer dat  #lowess(ori, f=.08)$y
-  #  sm[is.na(sm)] <- ori[is.na(sm)]
-  #  Ysm[[i]] <- t(array(sm, dim=c(T,S)))
-  #}
-  #Y <- Ysm
   
   ##########################################################################################
   ## Step 1 Bivariate pointwise estimate
@@ -83,22 +72,27 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
         Xst <- array(Xst, dim=c(n, 1)) 
         colnames(Xst) <- vars
       }
-    } else{ #if more than one covariate
+    }else{ #if more than one covariate
       if(!is.null(var.mat)){ #if at least one covariates have bivariate functions
-        Xst.sub <- as.matrix(Xst[,var.mat])[,seq(t, (length(var.mat)-1)*T + t, by=T)] #subset covariates which are bivariate functions
+        Xst.sub <- NULL
+        for(p.mat in 1:length(var.mat)){
+          Xst.sub <- cbind(Xst[,var.mat[p.mat]][,t], Xst.sub)
+        }
+        #Xst.sub <- as.matrix(Xst[,var.mat])[,seq(t, (length(var.mat)-1)*T + t, by=T)] #subset covariates which are bivariate functions
         colnames(Xst.sub) <- var.mat
-        Xst <- cbind(Xst[,!names(Xst) %in% var.mat], Xst.sub)
-        Xst <- Xst[, vars]
+        var.others <- names(Xst)[!names(Xst) %in% var.mat]
+        Xst <- cbind(Xst[,var.others,drop=FALSE], Xst.sub)
       }
     }
     dat <- data.frame(cbind(Xst, Yst))
     
     fit_bi <- suppressMessages(lm(formula = as.formula(paste0("Yst ~ ", model_formula[3])), data=dat))
     betaTilde <- coef(fit_bi)
-    #designmat <- model.matrix(fit_bi)
+    designmat <- model.matrix(fit_bi, na.action = na.pass)
     Covst <- summary(fit_bi)$sigma^2
-
-    return(list(betaTilde = betaTilde, designmat = data.matrix(cbind(1,Xst)), cov = Covst))
+    #data.matrix(cbind(1,Xst))
+    
+    return(list(betaTilde = betaTilde, designmat = designmat, cov = Covst))
   }
   
   #massive bivariate model
@@ -111,6 +105,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
   betaTilde <- lapply(S.argvals, function(i) lapply(massm[[i]], '[[', 1) %>% bind_rows()) %>% bind_rows()
   designmat <- lapply(S.argvals, function(i) lapply(massm[[i]], '[[', 2)) 
   RTilde <- lapply(S.argvals, function(i) lapply(massm[[i]], '[[', 3) %>% unlist()) %>% do.call("cbind",.)
+  vars <- names(betaTilde)[-1]
   
   ##########################################################################################
   ## Step 2 Smoothing
@@ -148,7 +143,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
     }else if(smoother == "sandwich"){
       betaHat[,p] <- y$Yhat %>% as.vector()
     }else{ 
-      stop("Smoother must be either sanwich smoother or tensor product smooths!")
+      stop("Smoother must be either sandwich smoother or tensor product smooths!")
     }
     lambda[,p] <- y$lambda
     S1[[p]] <- B1 %*% solve(Bt1 %*% B1 + lambda[1,p]*P1) %*% Bt1
@@ -158,7 +153,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
   betaHat <- lapply(1:ncol(betaHat), function(p) array(betaHat[,p], dim =  c(T, S))) #betaHat is the transpose of betaHat from paper
   names(betaHat) <- c("intercept", vars)
   colnames(lambda) <- c("intercept", vars)
-  RHat <- fbps(RTilde, knots = c(Tknots,Sknots))$Yhat 
+  RHat <- bandwidth.control$correct * fbps(RTilde, knots = c(Tknots,Sknots))$Yhat #take account into correlation correction 
   RHat[which(RHat < 0)] <- 0
   
   rm(betaTilde, RTilde)
@@ -166,6 +161,14 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
   ##########################################################################################
   ## Step 3.1 Centering
   ##########################################################################################
+  
+  #fpca.opt A list of options control parameters specified by list, dataType: dense and regular (Dense); Very densely and regularly 
+  #observed data: empirical mean and Densely recorded but irregular design, or contaminated with error: pre-smoothing for individual 
+  #curves (DenseWithMV); Sparse random design (Sparse)
+  fpca.opt <- list(dataType = 'Dense', methodSelectK = 'FVE')
+  B <- bootstrap.opt$B #bootstrap times
+  M <- bootstrap.opt$M #wild bootstrap residuals
+  
   if(pcb == TRUE)
   {
     if (!silence) cat("Step 3: Computing variance of bivariate estimates \n")
@@ -195,7 +198,6 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
     ##########################################################################################
     ## Step 3.2 Computing marginal covariance w.r.t. S and eigenfunctions psi
     ##########################################################################################
-    
     eigenS <- s.fpca(eta, S, fpca.opt)
     s.cov <- eigenS$s.cov
     pc.s <- eigenS$pc.s
@@ -205,7 +207,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
     ## Step 3.3 Computing B-spline smoothing xi(t) and marginal covariance w.r.t. T 
     ##########################################################################################
     Bt <- as.matrix(B1)
-    bsplineT <- b.lm(Bt, pc.s, xiEst)
+    bsplineT <- b.lm(n, Bt, pc.s, xiEst)
     t.cov <- bsplineT$t.cov
     
     ##########################################################################################
@@ -214,7 +216,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
     
     covBeta <- function(s,u,t,v){ #set s,u,t,v
       if(s==u & t==v){
-        cEta <- RHat[t,s] 
+        cEta <- RHat[t,s] + Reduce("+", lapply(1:pc.s,function(j) s.cov[j,s,u]*t.cov[j,t,v]))
       }else{
         cEta <- Reduce("+", lapply(1:pc.s,function(j) s.cov[j,s,u]*t.cov[j,t,v]))
       }
@@ -249,7 +251,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
             # put each element to the right position
             u <- s - 1 + up
             cov.beta.ts.tilde[((s-1)*T+1):(s*T), ((u-1)*T+1):(u*T), p] <-
-            cov.beta.ts.tilde[((u-1)*T+1):(u*T), ((s-1)*T+1):(s*T), p] <- tmp[[s]][[up]][,,p]  
+              cov.beta.ts.tilde[((u-1)*T+1):(u*T), ((s-1)*T+1):(s*T), p] <- tmp[[s]][[up]][,,p]  
           }
         }
       }
@@ -261,9 +263,9 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
               tmp <- covBeta(s,u,t,v)
               for(p in 1:length(betaHat)){
                 cov.beta.ts.tilde[(u-1)*T+v, (s-1)*T+t, p] <- 
-                cov.beta.ts.tilde[(u-1)*T+t, (s-1)*T+v, p] <- 
-                cov.beta.ts.tilde[(s-1)*T+v, (u-1)*T+t, p] <- 
-                cov.beta.ts.tilde[(s-1)*T+t, (u-1)*T+v, p] <- tmp[p,p]
+                  cov.beta.ts.tilde[(u-1)*T+t, (s-1)*T+v, p] <- 
+                  cov.beta.ts.tilde[(s-1)*T+v, (u-1)*T+t, p] <- 
+                  cov.beta.ts.tilde[(s-1)*T+t, (u-1)*T+v, p] <- tmp[p,p]
               }
             }
           }
@@ -285,6 +287,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
     }
     rm(ker.trimmed, cov.beta.ts.tilde)
     qn <- rep(0, length = length(betaHat))
+    vm <- array(0, dim = c(length(betaHat), M))
     
     ##########################################################################################
     ## Step 3.4(optional) Simultaneous Confidence Bands 
@@ -293,7 +296,6 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
     {
       if (!silence) cat("Step 3 (optional): Preparing simultaneous confidence bands \n")
       
-      B <- 50 #bootstrap times
       check_legal <- function(data.boot, var.bin){
         legal <- rep(NA, length(var.bin))
         for(i in 1:length(var.bin)) legal[i] <- all(data.boot[,var.bin[i]] == 0) | all(data.boot[,var.bin[i]] == 1)
@@ -302,7 +304,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
       
       fmm2d.boot <- function(b){
         i <- 0
-        print(b)
+        if (b %% 10 == 0) cat(b, "\n")
         while(TRUE){
           i <- i + 1
           sample.ind <- sample(unique(data$ID), size = n, replace = TRUE) #bootstrap id with replacement
@@ -311,11 +313,11 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
             row.ind <- c(row.ind, which(data$ID == sample.ind[id]))
           }
           data.boot <- data[row.ind,] #b_th dataset
-  
+          
           if(check_legal(data.boot, var.bin) | is.null(var.bin)){
             #if all binary covariates are valid or no binary covariate
             fmm2d.boot.result <- try(fmm2d(formula = formula, data = data.boot, S = S, smoother, knots = knots, 
-                                           fpca.opt = fpca.opt, parallel = FALSE,
+                                           bootstrap.opt, bandwidth.control, parallel = FALSE,
                                            pcb = FALSE, scb = FALSE, silence = TRUE), silent = TRUE)
             
             if ('try-error' %in% class(fmm2d.boot.result)){
@@ -352,33 +354,42 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
         betaHat.boot.p.demean <- lapply(1:B, function(b) betaHat.boot.p[[b]] - betaHat.boot.avg[[p]]) #demean each betaHat.boot.ps
         eigenS.boot <- s.fpca(eta = do.call("rbind", betaHat.boot.p.demean), S = S, fpca.opt = fpca.opt)
         psi.boot[[p]] <- eigenS.boot$psi
-        bsplineT.boot <- b.lm(Bt = Bt, pc.s = eigenS.boot$pc.s, xiEst = eigenS.boot$xiEst) 
+        bsplineT.boot <- b.lm(size = B, Bt = Bt, pc.s = eigenS.boot$pc.s, xiEst = eigenS.boot$xiEst) 
         ker.boot[[p]] <- bsplineT.boot$ker
       }
       rm(betaHat.boot.p, betaHat.boot.p.demean)
       
-      M <- 5000
       for(p in 1:length(qn)){
         sp <- sqrt(diag(cov.beta.ts.hat[,,p]))
         qm <- lapply(1:M, function(m) array(0, dim=c(T,S)))
         JB <- dim(ker.boot[[p]])[1]
         for(j in 1:JB){
-          Sig <- (1/B)*ker.boot[[p]][j,,]  
-          Sig.r <- Sig[-c(1,ncol(Bt)), -c(1,ncol(Bt))] #remove tail problems
-          Bt.r <- Bt[,-c(1,ncol(Bt))] #remove tail problems
-          umat <- rmvnorm(M, mean = rep(0, ncol(Bt.r)), sigma = Sig.r)
-          Btu <- apply(umat, 1, function(x) Bt.r %*% x)  
-          qm_j <- lapply(1:M, function(m) kronecker(Btu[,m], t(psi.boot[[p]][,j])))
-          qm <- mapply("+", qm_j, qm, SIMPLIFY = FALSE)
-          betaHat.boot.p <- lapply(qm, function(q) q + betaHat.boot.avg[[p]]) 
+          #since extra variance is brought by B-spline regression,
+          #we need to remove it, which reduces the varaince
+          Sig <- 1/(B*bandwidth.control$adjust)*ker.boot[[p]][j,,] 
+          d <- bandwidth.control$d #length of removing tail 
+          Sig.r <- Sig[-c(1:d,(ncol(Bt)-d+1):ncol(Bt)), -c(1:d,(ncol(Bt)-d+1):ncol(Bt))] #remove tail problems
+          Bt.r <- Bt[,-c(1:d,(ncol(Bt)-d+1):ncol(Bt))] #remove tail problems
+          #further smoothing covariance matrix to avoid large umat
+          Sig.r <- fbps(Sig.r, knots = round(ncol(Bt.r)/1.5))$Yhat
+          if(isSymmetric(Sig.r)){
+            umat <- rmvnorm(M, mean = rep(0, ncol(Bt.r)), sigma = Sig.r)
+            Btu <- apply(umat, 1, function(x) Bt.r %*% x)  
+            qm_j <- lapply(1:M, function(m) kronecker(Btu[,m], t(psi.boot[[p]][,j])))
+            qm <- mapply("+", qm_j, qm, SIMPLIFY = FALSE)
+            betaHat.boot.p <- lapply(qm, function(q) q + betaHat.boot.avg[[p]]) 
+          }else{
+            next
+          }
         }
         qmdvar <- lapply(1:M, function(m) abs(betaHat.boot.p[[m]] - betaHat[[p]])/array(sp, dim=c(T,S)))
         qmstar <- lapply(1:M, function(m) max(qmdvar[[m]]))
+        vm[p,] <- unlist(qmstar)
         qn[p] <- quantile(unlist(qmstar), 0.95) 
       }
     }
     
-    return(list(betaHat = betaHat, betaHat.cov = cov.beta.ts.hat, qn = qn))
+    return(list(betaHat = betaHat, betaHat.cov = cov.beta.ts.hat, qn = qn, vm = vm))
     
   }else{
     
@@ -412,8 +423,8 @@ s.fpca <- function(eta, S, fpca.opt){
 }
 
 
-b.lm <- function(Bt, pc.s, xiEst){
-  b <- array(0, dim=c(n,ncol(Bt),pc.s))
+b.lm <- function(size, Bt, pc.s, xiEst){
+  b <- array(0, dim=c(size,ncol(Bt),pc.s))
   
   bspl.fit <- function(i){
     fit <- lm(bspl[i,] ~ 0 + Bt)
@@ -421,9 +432,10 @@ b.lm <- function(Bt, pc.s, xiEst){
     return(b)
   }
   
+  T <- nrow(Bt)
   for (j in 1:pc.s){
-    bspl <- matrix(xiEst[,j], nrow=n, ncol=T, byrow=TRUE)
-    bspl.result <- lapply(1:n, function(i) bspl.fit(i))
+    bspl <- matrix(xiEst[,j], nrow=size, ncol=T, byrow=TRUE)
+    bspl.result <- lapply(1:size, function(i) bspl.fit(i))
     b[,,j] <- bspl.result %>% bind_rows() %>% as.matrix()
   }
   
@@ -431,16 +443,29 @@ b.lm <- function(Bt, pc.s, xiEst){
   t.cov <- array(0, dim=c(pc.s, T, T))
   ker <- array(0, dim=c(pc.s, ncol(Bt), ncol(Bt)))
   for(j in 1:pc.s){
-    for (i in 1:n){
+    for (i in 1:size){
       ker[j,,] <- ker[j,,] + kronecker(t(b[i,,j]), b[i,,j])
     }
-    t.cov[j,,] <- (1/n) * Bt %*% ker[j,,] %*% t(Bt)
+    t.cov[j,,] <- 1/size * Bt %*% ker[j,,] %*% t(Bt)
   }
   return(list(t.cov=t.cov, ker=ker))
+}
+
+
+## Presmoothing  
+presmooth <- function(Y){
+  Ysm <- list()
+  for (i in 1:n) {
+    ori  <- as.vector(t(Y[[i]]))
+    sm <- stats::filter(ori, sides=2, filter = (rep(1, 10)/10)) ## smooth accelerometer dat  #lowess(ori, f=.08)$y
+    sm[is.na(sm)] <- ori[is.na(sm)]
+    Ysm[[i]] <- t(array(sm, dim=c(T,S)))
+  }
+  Y <- Ysm
+  return(Y)
 }
 
 
 
 
 
-  
