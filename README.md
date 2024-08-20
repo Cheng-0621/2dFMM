@@ -11,7 +11,7 @@ The main function of the two-dimensional fixed effect inference is:
 * `fmm2d`: Estimates bivariate coefficient functions and confidence surfaces.
 
 ```
-fmm2d(formula, data, S, smoother = "sandwich", knots = NULL, fpca.opt = list(dataType = 'DenseWithMV', methodSelectK = 'FVE'), pcb = TRUE, scb = FALSE, parallel = FALSE, silence = FALSE)
+fmm2d(formula, data, S, smoother = "sandwich", knots = NULL,  pcb = TRUE, scb = FALSE, parallel = FALSE, silence = FALSE)
 ``` 
 
 ### Arguments 
@@ -19,6 +19,8 @@ fmm2d(formula, data, S, smoother = "sandwich", knots = NULL, fpca.opt = list(dat
 * `data`:  dataframe containing variables in the formula and ID column.
 * `S`: number of longitudinal grids.
 * `smoother`: moother sandwich smoother (sandwich) or tensor product smoother (te).
+* `bootstrap.opt` bootstrapping options, B is boostrap sample size and M is for obtaining qn 
+* `bandwidth.control` correlation correction and adjustment for confidence bands bandwidth control 
 * `fpca.opt `: list of options control parameters specified by list, dataType: dense and regular (Dense); Very densely and regularly ' observed data: empirical mean and Densely recorded but irregular design, or contaminated with error: pre-smoothing for individual curves (DenseWithMV); Sparse random design (Sparse).
 * `pcb`: whether to obtain pointwise confidence bands, default is TRUE.
 * `scb`: whether to obtain simultaneous confidence bands, default is FALSE.
@@ -69,9 +71,9 @@ We can fit the bivariate functional mixed model.
 S <- 10 #number of the longitudinal grids
 T <- 100 #number of the functional grids
 
-fit_S1 <- fmm2d(formula=Y~X, data=data, S=S, smoother="sandwich", knots=c(S-3, min(round(T/4), 35)), fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'),  parallel = TRUE)
+fit_S1 <- fmm2d(formula=Y~X, data=data, S=S, smoother="sandwich", knots=c(S-3, min(round(T/4), 35)),  parallel = TRUE)
  
-fit_S2 <- fmm2d(formula=Y~X, data=data, S=S, smoother="te", knots=c(max(round(S/4),4), min(round(T/4), 35)), fpca.opt = list(dataType = 'Dense', methodSelectK = 'FVE'), parallel = TRUE)
+fit_S2 <- fmm2d(formula=Y~X, data=data, S=S, smoother="te", knots=c(max(round(S/4),4), min(round(T/4), 35)), parallel = TRUE)
 ```
 
 The estimates to bivariate coefficient functions under S1 and S2 are respectively shown as below.
