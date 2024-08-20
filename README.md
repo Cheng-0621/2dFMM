@@ -21,7 +21,6 @@ fmm2d(formula, data, S, smoother = "sandwich", knots = NULL,  pcb = TRUE, scb = 
 * `smoother`: moother sandwich smoother (sandwich) or tensor product smoother (te).
 * `bootstrap.opt` bootstrapping options, B is boostrap sample size and M is for obtaining qn 
 * `bandwidth.control` correlation correction and adjustment for confidence bands bandwidth control 
-* `fpca.opt `: list of options control parameters specified by list, dataType: dense and regular (Dense); Very densely and regularly ' observed data: empirical mean and Densely recorded but irregular design, or contaminated with error: pre-smoothing for individual curves (DenseWithMV); Sparse random design (Sparse).
 * `pcb`: whether to obtain pointwise confidence bands, default is TRUE.
 * `scb`: whether to obtain simultaneous confidence bands, default is FALSE.
 * `parallel`: parallel whether to run parallel computing (TRUE only for Linux/Mac users).
