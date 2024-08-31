@@ -76,7 +76,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
       if(!is.null(var.mat)){ #if at least one covariates have bivariate functions
         Xst.sub <- NULL
         for(p.mat in 1:length(var.mat)){
-          Xst.sub <- cbind(Xst[,var.mat[p.mat]][,t], Xst.sub)
+          Xst.sub <- cbind(Xst.sub, Xst[,var.mat[p.mat]][,t])
         }
         #Xst.sub <- as.matrix(Xst[,var.mat])[,seq(t, (length(var.mat)-1)*T + t, by=T)] #subset covariates which are bivariate functions
         colnames(Xst.sub) <- var.mat
@@ -91,7 +91,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
     designmat <- model.matrix(fit_bi, na.action = na.pass)
     Covst <- summary(fit_bi)$sigma^2
     #data.matrix(cbind(1,Xst))
-    
+
     return(list(betaTilde = betaTilde, designmat = designmat, cov = Covst))
   }
   
@@ -251,7 +251,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
             # put each element to the right position
             u <- s - 1 + up
             cov.beta.ts.tilde[((s-1)*T+1):(s*T), ((u-1)*T+1):(u*T), p] <-
-              cov.beta.ts.tilde[((u-1)*T+1):(u*T), ((s-1)*T+1):(s*T), p] <- tmp[[s]][[up]][,,p]  
+            cov.beta.ts.tilde[((u-1)*T+1):(u*T), ((s-1)*T+1):(s*T), p] <- tmp[[s]][[up]][,,p]  
           }
         }
       }
@@ -263,9 +263,9 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
               tmp <- covBeta(s,u,t,v)
               for(p in 1:length(betaHat)){
                 cov.beta.ts.tilde[(u-1)*T+v, (s-1)*T+t, p] <- 
-                  cov.beta.ts.tilde[(u-1)*T+t, (s-1)*T+v, p] <- 
-                  cov.beta.ts.tilde[(s-1)*T+v, (u-1)*T+t, p] <- 
-                  cov.beta.ts.tilde[(s-1)*T+t, (u-1)*T+v, p] <- tmp[p,p]
+                cov.beta.ts.tilde[(u-1)*T+t, (s-1)*T+v, p] <- 
+                cov.beta.ts.tilde[(s-1)*T+v, (u-1)*T+t, p] <- 
+                cov.beta.ts.tilde[(s-1)*T+t, (u-1)*T+v, p] <- tmp[p,p]
               }
             }
           }
@@ -313,7 +313,7 @@ fmm2d <- function(formula, data, S, smoother = "sandwich", knots = NULL,
             row.ind <- c(row.ind, which(data$ID == sample.ind[id]))
           }
           data.boot <- data[row.ind,] #b_th dataset
-          
+  
           if(check_legal(data.boot, var.bin) | is.null(var.bin)){
             #if all binary covariates are valid or no binary covariate
             fmm2d.boot.result <- try(fmm2d(formula = formula, data = data.boot, S = S, smoother, knots = knots, 
@@ -469,3 +469,4 @@ presmooth <- function(Y){
 
 
 
+  
