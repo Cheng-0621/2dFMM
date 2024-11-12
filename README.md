@@ -86,7 +86,6 @@ The estimates to bivariate coefficient functions under S1 and S2 are respectivel
 * `2DFMM.R`: The main algorithm of our proposed bivariate functional mixed model.
 * `simu_generate.R`: The procedures to generate simulation data.
 * `demo_simu.R`: A demo script for a simulation study of cases S1 and S2.
-* `example.RData`: a subset ($N=200$) of Shanghai adolescent physical activity data and their demographic and mental health outcomes. 
 * `demo_app.R`: A demo script for real data application. 
 
 ## Authors
